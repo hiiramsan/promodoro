@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+.font-inter {
+    font-family: 'Inter', sans-serif;
+    font-weight: 200;
+}
+
+.font-inter-bold {
+    font-family: 'Inter' sans-serif;
+    font-weight: 600;
+}
