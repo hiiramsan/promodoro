@@ -6,14 +6,13 @@ const Timer = () => {
         FOCUS: 'focus',
         SHORT_BREAK: 'short_break',
         LONG_BREAK: 'long_break'
-    };
-
-    // Pomodoro timer state
+    };    // Pomodoro timer state
     const [currentState, setCurrentState] = useState(TIMER_STATES.FOCUS);
     const [timeLeft, setTimeLeft] = useState(25);
     const [isActive, setIsActive] = useState(false);
     const [focusSessions, setFocusSessions] = useState(0);
     const [sessionsUntilLongBreak, setSessionsUntilLongBreak] = useState(4);
+    const [isExpanded, setIsExpanded] = useState(false);
     const intervalRef = useRef(null);
 
     const getStateDuration = (state) => {
@@ -62,7 +61,7 @@ const Timer = () => {
         setCurrentState(nextState);
         setTimeLeft(getStateDuration(nextState));
         clearInterval(intervalRef.current);
-        
+
         // If it's an automatic transition, keep the timer running
         if (isAutomatic) {
             setIsActive(true);
@@ -74,7 +73,8 @@ const Timer = () => {
         if (isActive && timeLeft > 0) {
             intervalRef.current = setInterval(() => {
                 setTimeLeft(time => time - 1);
-            }, 1000);        } else if (timeLeft === 0 && isActive) {
+            }, 1000);
+        } else if (timeLeft === 0 && isActive) {
             // Timer finished, automatically skip to next and keep running
             skipToNext(true);
         } else {
@@ -123,26 +123,52 @@ const Timer = () => {
             default:
                 return 'Focus';
         }
-    }; 
-   
+    };
     return (
-        <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 w-1/2 flex flex-col items-center justify-center min-h-[400px]">      
-        <div className="flex w-full mb-6 bg-white/5 rounded-xl p-1 gap-1">
-            {Object.values(TIMER_STATES).map((state) => (
+        <div className={`backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col items-center justify-center transition-all duration-300 ${isExpanded
+                ? 'fixed inset-4 z-50 w-auto h-auto'
+                : 'w-1/2 min-h-[400px]'
+            }`}>
+            {/* Header with title and expand button */}
+            <div className="flex justify-between items-center w-full mb-6">
+                <h2 className="text-xl font-inter-bold">Timer</h2>
                 <button
-                    key={state}
-                    onClick={() => switchToState(state)}
-                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer ${currentState === state
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all duration-200 cursor-pointer border border-white/20"
+                    title={isExpanded ? "Exit fullscreen" : "Expand to fullscreen"}
+                >
+                    {isExpanded ? (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                        </svg>
+                    )}
+                </button>
+            </div>
+
+            <div className="flex w-full mb-6 bg-white/5 rounded-xl p-1 gap-1">
+                {Object.values(TIMER_STATES).map((state) => (
+                    <button
+                        key={state}
+                        onClick={() => switchToState(state)}
+                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer ${currentState === state
                             ? 'bg-white/20 text-white shadow-sm'
                             : 'text-white/60 hover:text-white/80 hover:bg-white/10'
-                        }`}
-                >
-                    {getStateLabel(state)}
-                </button>
-            ))}            
-            </div>            {/* Circular Progress Timer */}
-            <div className="relative w-52 h-52 mb-6">
-                <svg className="w-52 h-52 transform -rotate-90" viewBox="0 0 100 100">
+                            }`}
+                    >
+                        {getStateLabel(state)}
+                    </button>
+                ))}              
+                </div>
+
+        
+
+            {/* Circular Progress Timer */}
+            <div className={`relative mb-6 ${isExpanded ? 'w-80 h-80' : 'w-52 h-52'}`}>
+                <svg className={`transform -rotate-90 ${isExpanded ? 'w-80 h-80' : 'w-52 h-52'}`} viewBox="0 0 100 100">
                     {/* Background circle */}
                     <circle
                         cx="50"
@@ -168,14 +194,14 @@ const Timer = () => {
                 </svg>
 
                 {/* Timer display */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">                        <div className="text-4xl font-mono font-inter mb-1">
+                <div className="absolute inset-0 flex items-center justify-center">                    <div className="text-center">
+                    <div className={`font-mono font-inter mb-1 ${isExpanded ? 'text-7xl' : 'text-4xl'}`}>
                         {formatTime(timeLeft)}
                     </div>
-                        <div className="text-sm text-white/60">
-                            {currentState === TIMER_STATES.FOCUS ? 'Stay focused' : 'Take a break'}
-                        </div>
+                    <div className={`text-white/60 ${isExpanded ? 'text-lg' : 'text-sm'}`}>
+                        {currentState === TIMER_STATES.FOCUS ? 'Stay focused' : 'Take a break'}
                     </div>
+                </div>
                 </div>
             </div>            {/* Control buttons */}
             <div className="relative flex justify-center mb-4">
