@@ -1,3 +1,6 @@
+// Este modulo es el background que se esta utilizando (es de una libreria)
+
+
 /* eslint-disable react/no-unknown-property */
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { forwardRef, useRef, useMemo, useLayoutEffect, memo } from "react";
