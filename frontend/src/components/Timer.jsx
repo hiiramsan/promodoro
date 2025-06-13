@@ -117,34 +117,26 @@ const Timer = () => {
             default:
                 return 'Focus';
         }
-    }; const toggleTask = (id) => {
-        setTasks(tasks =>
-            tasks.map(task =>
-                task.id === id ? { ...task, completed: !task.completed } : task
-            )
-        );
-
-    };
+    }; 
+   
     return (
-        <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg p-8 w-1/2 flex flex-col items-center justify-center min-h-[500px]">            {/* State Tabs */}
-            <div className="flex w-full mb-8 bg-white/5 rounded-xl p-1 gap-1">
-                {Object.values(TIMER_STATES).map((state) => (
-                    <button
-                        key={state}
-                        onClick={() => switchToState(state)}
-                        className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${currentState === state
-                                ? 'bg-white/20 text-white shadow-sm'
-                                : 'text-white/60 hover:text-white/80 hover:bg-white/10'
-                            }`}
-                    >
-                        {getStateLabel(state)}
-                    </button>
-                ))}
-            </div>
-
-            {/* Circular Progress Timer */}
-            <div className="relative w-64 h-64 mb-8">
-                <svg className="w-64 h-64 transform -rotate-90" viewBox="0 0 100 100">
+        <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 w-1/2 flex flex-col items-center justify-center min-h-[400px]">      
+        <div className="flex w-full mb-6 bg-white/5 rounded-xl p-1 gap-1">
+            {Object.values(TIMER_STATES).map((state) => (
+                <button
+                    key={state}
+                    onClick={() => switchToState(state)}
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer ${currentState === state
+                            ? 'bg-white/20 text-white shadow-sm'
+                            : 'text-white/60 hover:text-white/80 hover:bg-white/10'
+                        }`}
+                >
+                    {getStateLabel(state)}
+                </button>
+            ))}            
+            </div>            {/* Circular Progress Timer */}
+            <div className="relative w-52 h-52 mb-6">
+                <svg className="w-52 h-52 transform -rotate-90" viewBox="0 0 100 100">
                     {/* Background circle */}
                     <circle
                         cx="50"
@@ -171,29 +163,28 @@ const Timer = () => {
 
                 {/* Timer display */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                        <div className="text-5xl font-mono font-inter mb-2">
-                            {formatTime(timeLeft)}
-                        </div>
-                        <div className="text-md text-white/60">
+                    <div className="text-center">                        <div className="text-4xl font-mono font-inter mb-1">
+                        {formatTime(timeLeft)}
+                    </div>
+                        <div className="text-sm text-white/60">
                             {currentState === TIMER_STATES.FOCUS ? 'Stay focused' : 'Take a break'}
                         </div>
                     </div>
                 </div>
             </div>            {/* Control buttons */}
-            <div className="flex space-x-4 mb-6">
+            <div className="relative flex justify-center mb-4">
                 <button
                     onClick={toggleTimer}
-                    className="px-12 py-4 rounded-lg font-semibold bg-white/10 hover:bg-white/20 text-white transition-all duration-200 cursor-pointer border border-white/20"
+                    className="px-6 py-2 rounded-lg font-medium bg-white/10 hover:bg-white/20 text-white transition-all duration-200 cursor-pointer border border-white/20"
                 >
                     {isActive ? 'Pause' : 'Start'}
                 </button>
                 <button
                     onClick={skipToNext}
-                    className="p-4 rounded-lg font-semibold bg-white/10 hover:bg-white/20 text-white transition-all duration-200 cursor-pointer border border-white/20"
+                    className="ml-3 p-2 rounded-lg font-medium bg-white/10 hover:bg-white/20 text-white transition-all duration-200 cursor-pointer border border-white/20"
                     title="Skip to next session"
                 >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
                 </button>
@@ -207,8 +198,8 @@ const Timer = () => {
                         <div
                             key={i}
                             className={`w-3 h-3 rounded-full ${i < (focusSessions % sessionsUntilLongBreak)
-                                    ? 'bg-blue-500'
-                                    : 'bg-white/20'
+                                ? 'bg-blue-500'
+                                : 'bg-white/20'
                                 }`}
                         />
                     ))}
