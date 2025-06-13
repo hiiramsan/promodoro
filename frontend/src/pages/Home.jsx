@@ -4,8 +4,6 @@ import Timer from '../components/Timer';
 import Navbar from '../components/Navbar';
 import Tasks from '../components/Tasks';
 
-
-
 const Home = () => {
     return (
         <div className="min-h-screen text-white relative overflow-hidden">
@@ -22,11 +20,11 @@ const Home = () => {
             <div className="relative z-10">
                 <Navbar />
                 <div className="container mx-auto px-6 lg:px-12 py-8">
-                    <div className="text-center mb-12">
-                        <h1 className="text-xl lg:text-3xl font-inter leading-tight mb-4">
+                    {<div className="text-center mb-12">
+                        <h1 className="text-xl lg:text-3xl font-inter leading-tight">
                             What are you doing today?
                         </h1>
-                    </div>
+                    </div>}
                     <div className="flex justify-between items-start gap-8">
                         <Tasks />
                         <Timer />
