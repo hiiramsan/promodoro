@@ -10,23 +10,22 @@ const Timer = () => {
 
     // Pomodoro timer state
     const [currentState, setCurrentState] = useState(TIMER_STATES.FOCUS);
-    const [timeLeft, setTimeLeft] = useState(25 * 60);
+    const [timeLeft, setTimeLeft] = useState(25);
     const [isActive, setIsActive] = useState(false);
     const [focusSessions, setFocusSessions] = useState(0);
     const [sessionsUntilLongBreak, setSessionsUntilLongBreak] = useState(4);
     const intervalRef = useRef(null);
 
-    // Get timer duration for each state
     const getStateDuration = (state) => {
         switch (state) {
             case TIMER_STATES.FOCUS:
-                return 25 * 60;
+                return 25;
             case TIMER_STATES.SHORT_BREAK:
-                return 5 * 60;
+                return 5;
             case TIMER_STATES.LONG_BREAK:
-                return 15 * 60;
+                return 15;
             default:
-                return 25 * 60;
+                return 25;
         }
     };
 
@@ -50,10 +49,8 @@ const Timer = () => {
         setCurrentState(newState);
         setTimeLeft(getStateDuration(newState));
         clearInterval(intervalRef.current);
-    };
-
-    // Skip to next state
-    const skipToNext = () => {
+    };    // Skip to next state
+    const skipToNext = (isAutomatic = false) => {
         const nextState = getNextState();
 
         // Update focus sessions count if completing a focus session
@@ -61,16 +58,25 @@ const Timer = () => {
             setFocusSessions(prev => prev + 1);
         }
 
-        switchToState(nextState);
-    };    // Timer effect
+        // Switch to new state
+        setCurrentState(nextState);
+        setTimeLeft(getStateDuration(nextState));
+        clearInterval(intervalRef.current);
+        
+        // If it's an automatic transition, keep the timer running
+        if (isAutomatic) {
+            setIsActive(true);
+        } else {
+            setIsActive(false);
+        }
+    };// Timer effect
     useEffect(() => {
         if (isActive && timeLeft > 0) {
             intervalRef.current = setInterval(() => {
                 setTimeLeft(time => time - 1);
-            }, 1000);
-        } else if (timeLeft === 0 && isActive) {
-            // Timer finished, automatically skip to next
-            skipToNext();
+            }, 1000);        } else if (timeLeft === 0 && isActive) {
+            // Timer finished, automatically skip to next and keep running
+            skipToNext(true);
         } else {
             clearInterval(intervalRef.current);
         }
