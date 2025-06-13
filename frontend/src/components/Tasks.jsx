@@ -22,7 +22,7 @@ const Tasks = () => {
             completed: false,
             tags: ["Personal"]
         }
-    ];    const [tasks, setTasks] = useState(initialTasks);
+    ]; const [tasks, setTasks] = useState(initialTasks);
     const [showAddTask, setShowAddTask] = useState(false);
     const [newTaskName, setNewTaskName] = useState('');
     const [newTaskTags, setNewTaskTags] = useState('');
@@ -33,9 +33,8 @@ const Tasks = () => {
                 task.id === id ? { ...task, completed: !task.completed } : task
             )
         );
-    };
-
-    const addTask = () => {
+    }; const addTask = (e) => {
+        e.preventDefault();
         if (newTaskName.trim()) {
             const newTask = {
                 id: Date.now(), // Simple ID generation
@@ -50,24 +49,24 @@ const Tasks = () => {
         }
     };
 
-    const cancelAddTask = () => {
+    const cancelAddTask = (e) => {
+        e.preventDefault();
         setNewTaskName('');
         setNewTaskTags('');
         setShowAddTask(false);
-    };    return (
+    }; return (
         <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg p-8 w-1/2 max-w-2xl min-w-[350px]">
             <h2 className="text-xl font-inter-bold mb-8">Tasks</h2>
-            
+
             <ul className="space-y-6">
                 {tasks.map(task => (
-                    <li key={task.id} className="flex flex-row items-center justify-between">
+                    <li key={task.id} className="flex flex-row items-center justify-between ml-2">
                         <div className="flex flex-row items-center space-x-3 flex-1 min-w-0">
                             <button
-                                className={`w-6 h-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-colors cursor-pointer ${
-                                    task.completed
+                                className={`w-6 h-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-colors cursor-pointer ${task.completed
                                         ? "bg-green-500 border-green-500"
                                         : "border-gray-400 bg-transparent"
-                                }`}
+                                    }`}
                                 aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
                                 onClick={() => toggleTask(task.id)}
                             >
@@ -93,8 +92,8 @@ const Tasks = () => {
                         </div>
                     </li>
                 ))}
-                
-                {/* Add Task Button - styled like a task */}
+
+                {/* Add Task Button */}
                 <li className="flex flex-row items-center justify-between">
                     <button
                         onClick={() => setShowAddTask(true)}
@@ -119,7 +118,7 @@ const Tasks = () => {
                             value={newTaskName}
                             onChange={(e) => setNewTaskName(e.target.value)}
                             placeholder="What do you need to do?"
-                            className="w-full px-3 py-3 bg-transparent border-none text-white placeholder-white/50 focus:outline-none text-lg font-inter"
+                            className="w-full px-3 py-3 bg-transparent border-none text-white placeholder-white/50 focus:outline-none text-lg font-inter-bold"
                             autoFocus
                         />
                         <input
@@ -127,15 +126,17 @@ const Tasks = () => {
                             value={newTaskTags}
                             onChange={(e) => setNewTaskTags(e.target.value)}
                             placeholder="Add tags: work, personal, urgent..."
-                            className="w-full px-3 py-2 bg-transparent border-none text-white placeholder-white/40 focus:outline-none text-sm"                        />
+                            className="w-full px-3 py-2 bg-transparent border-none text-white placeholder-white/40 focus:outline-none text-sm" />
                         <div className="flex justify-end items-center space-x-3 pt-2">
                             <button
+                                type="button"
                                 onClick={cancelAddTask}
                                 className="text-white/60 hover:text-white font-medium transition-all duration-200 cursor-pointer"
                             >
                                 Cancel
                             </button>
                             <button
+                                type="button"
                                 onClick={addTask}
                                 className="px-4 py-2 bg-black hover:bg-gray-900 text-white rounded-lg font-medium transition-all duration-200 cursor-pointer border border-white/20"
                             >
