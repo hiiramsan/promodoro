@@ -21,9 +21,9 @@ const Navigation = memo(() => (
             <Link to="/home" className="px-3 py-1.5 text-sm border border-gray-600 rounded-full hover:bg-gray-800 transition-colors font-inter cursor-pointer">
                 Start
             </Link>
-            <button className="px-3 py-1.5 text-sm bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800 rounded-full transition-all duration-200 font-inter border border-gray-700 cursor-pointer">
+            <Link to={"/signup"} className="px-3 py-1.5 text-sm bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800 rounded-full transition-all duration-200 font-inter border border-gray-700 cursor-pointer">
                 Create account
-            </button>
+            </Link>
         </div>
     </nav>
 ));

@@ -1,4 +1,3 @@
-import React, { useState, useEffect, useRef } from 'react';
 import Silk from '../components/Silk';
 import Timer from '../components/Timer';
 import Navbar from '../components/Navbar';
@@ -19,14 +18,12 @@ const Home = () => {
 
             <div className="relative z-10">
                 <Navbar />
-                <div className="container mx-auto px-6 lg:px-12 py-8">
-                    {<div className="text-center mb-12">
-                        <h1 className="text-xl lg:text-3xl font-inter leading-tight">
-                            What are you doing today?
-                        </h1>
-                    </div>}
+                <div className="container mx-auto px-6 lg:px-12 py-4">
                     <div className="flex justify-between items-start gap-8">
-                        <Tasks />
+                        <div className="flex flex-col w-full space-y-8">
+                            <Tasks />
+                            {/* here its gonna be projects */}
+                        </div>
                         <Timer />
                     </div>
                 </div>

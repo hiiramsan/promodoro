@@ -55,7 +55,7 @@ const Tasks = () => {
         setNewTaskTags('');
         setShowAddTask(false);
     }; return (
-        <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg p-8 w-1/2 max-w-2xl min-w-[350px]">
+        <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg p-8 w-1/2 max-w-2xl min-w-[350px] w-full">
             <h2 className="text-xl font-inter-bold mb-8">Tasks</h2>
 
             <ul className="space-y-6">
