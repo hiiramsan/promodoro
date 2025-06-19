@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import testRouter from './routes/testRouter.js'; 
 import authRouter from './routes/authRouter.js'
+import tasksRouter from './routes/taskRoutes.js';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/messages', testRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/tasks', tasksRouter)
 
 app.get('/', (req, res) => {
   res.json({ 
