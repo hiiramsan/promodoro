@@ -2,36 +2,78 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import LandingPage from './pages/LandingPage.jsx'
 import Home from './pages/Home.jsx'
 import SignUp from './pages/SignUp.jsx'
 import Login from './pages/Login.jsx'
-import { AuthProvider } from './context/AuthContext.jsx'
+import { AuthProvider, useAuth } from './context/AuthContext.jsx'
+
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return user ? children : <Navigate to="/login" replace />;
+};
+
+const PublicRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return !user ? children : <Navigate to="/home" replace />;
+};
 
 const router = createBrowserRouter([
   {
     path: '/',
     element: (
-      <LandingPage />
+      <PublicRoute>
+        <LandingPage />
+      </PublicRoute>
     )
   },
   {
     path: '/home',
     element: (
-      <Home />
+      <ProtectedRoute>
+        <Home />
+      </ProtectedRoute>
     )
   },
   {
     path: '/signup',
     element: (
-      <SignUp />
+      <PublicRoute>
+        <SignUp />
+      </PublicRoute>
     )
   },
   {
     path: '/login',
     element: (
-      <Login />
+      <PublicRoute>
+        <Login />
+      </PublicRoute>
     )
   }
 ])

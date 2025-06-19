@@ -1,15 +1,18 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import Silk from "../components/Silk";
 
 const Login = () => {
+    const { login } = useAuth();
+    const navigate = useNavigate();
     const [formData, setFormData] = useState({
         email: "",
         password: ""
     });
     const [errors, setErrors] = useState({});
-    const [isLoading, setIsLoading] = useState(false);
-
+    const [isLoading, setIsLoading] = useState(false);    
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({
@@ -21,6 +24,13 @@ const Login = () => {
             setErrors(prev => ({
                 ...prev,
                 [name]: ""
+            }));
+        }
+        // Clear general error when user starts typing
+        if (errors.general) {
+            setErrors(prev => ({
+                ...prev,
+                general: ""
             }));
         }
     };
@@ -43,9 +53,7 @@ const Login = () => {
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
-    };
-
-    const handleSubmit = async (e) => {
+    };    const handleSubmit = async (e) => {
         e.preventDefault();
         
         if (!validateForm()) {
@@ -55,14 +63,19 @@ const Login = () => {
         setIsLoading(true);
         
         try {
-            // Here you would typically make an API call to authenticate
-            console.log("Logging in with:", formData);
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            alert("Login successful!");
+            await login(formData.email, formData.password);
+            // Navigate to home page after successful login
+            navigate('/home');
         } catch (error) {
             console.error("Error logging in:", error);
-            alert("Failed to login. Please try again.");
+            // Set error message based on response
+            if (error.response?.status === 400) {
+                setErrors({ general: "Invalid email or password" });
+            } else if (error.response?.data?.message) {
+                setErrors({ general: error.response.data.message });
+            } else {
+                setErrors({ general: "Failed to login. Please try again." });
+            }
         } finally {
             setIsLoading(false);
         }
@@ -72,11 +85,8 @@ const Login = () => {
         // Here you would integrate with Google OAuth
         console.log("Login with Google");
         alert("Google login integration would be implemented here");
-    };
-
-    const navigateToSignUp = () => {
-        // Navigation logic - you can replace this with your router
-        window.location.href = '/signup';
+    };    const navigateToSignUp = () => {
+        navigate('/signup');
     };
 
     return (
@@ -93,8 +103,14 @@ const Login = () => {
 
             <div className="relative z-10">
                 <div className="container mx-auto px-6 lg:px-12 py-4">
-                    <div className="max-w-md mx-auto mt-10">
-                        <h1 className="font-inter text-3xl text-center mb-8">Welcome back</h1>
+                    <div className="max-w-md mx-auto mt-10">                        <h1 className="font-inter text-3xl text-center mb-8">Welcome back</h1>
+                        
+                        {/* General Error Message */}
+                        {errors.general && (
+                            <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-5">
+                                <p className="text-red-400 text-sm text-center">{errors.general}</p>
+                            </div>
+                        )}
                         
                         {/* Login Form */}
                         <form onSubmit={handleSubmit} className="space-y-5">
@@ -154,7 +170,7 @@ const Login = () => {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className={`w-full px-3 py-2 rounded-lg font-medium transition duration-200 ${
+                                className={`w-full px-3 py-2 rounded-lg font-medium transition duration-200 cursor-pointer ${
                                     isLoading
                                         ? 'bg-gray-600 cursor-not-allowed'
                                         : 'bg-white text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-gray-900'
