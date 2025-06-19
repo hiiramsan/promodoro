@@ -127,12 +127,10 @@ const Timer = () => {
         <>
             {isExpanded && (
                 <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-all duration-300"></div>
-            )}
-
-            <div className={`backdrop-blur-md border border-white/20 rounded-2xl shadow-lg p-6 flex flex-col items-center transition-all duration-300 w-full ${isExpanded
-                ? 'fixed inset-x-4 top-4 bottom-4 z-50 w-auto h-auto justify-start bg-white/5 backdrop-blur-lg border-white/25 shadow-xl'
-                : 'w-1/2 min-h-[400px] justify-center bg-white/10'
-                }`}>            {/* Header with title and expand button */}
+            )}            <div className={`backdrop-blur-md border border-white/20 rounded-2xl shadow-lg flex flex-col items-center transition-all duration-300 ${isExpanded
+                ? 'fixed inset-4 z-50 justify-start bg-white/5 backdrop-blur-lg border-white/25 shadow-xl p-4 sm:p-6 max-h-screen overflow-y-auto'
+                : 'w-1/2 min-h-[400px] justify-center bg-white/10 p-6 w-full'
+                }`}>                {/* Header with title and expand button */}
                 <div className="flex justify-between items-center w-full mb-6">
                     <h2 className={`font-inter-bold ${isExpanded ? 'text-xl text-white' : 'text-xl'}`}>Timer</h2>
                     <button
@@ -151,7 +149,7 @@ const Timer = () => {
                         <button
                             key={state}
                             onClick={() => switchToState(state)}
-                            className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer ${currentState === state
+                            className={`flex-1 py-2 px-2 sm:px-3 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap ${currentState === state
                                 ? (isExpanded ? 'bg-white/25 text-white shadow-sm' : 'bg-white/20 text-white shadow-sm')
                                 : (isExpanded ? 'text-white/70 hover:text-white hover:bg-white/15' : 'text-white/60 hover:text-white/80 hover:bg-white/10')
                                 }`}
@@ -159,13 +157,9 @@ const Timer = () => {
                             {getStateLabel(state)}
                         </button>
                     ))}
-                </div>
-
-
-
-                {/* Circular Progress Timer */}
-                <div className={`relative mb-6 ${isExpanded ? 'w-80 h-80' : 'w-52 h-52'}`}>
-                    <svg className={`transform -rotate-90 ${isExpanded ? 'w-80 h-80' : 'w-52 h-52'}`} viewBox="0 0 100 100">
+                </div>{/* Circular Progress Timer */}
+                <div className={`relative mb-6 flex-shrink-0 ${isExpanded ? 'w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80' : 'w-52 h-52'}`}>
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                         {/* Background circle */}
                         <circle
                             cx="50"
@@ -192,10 +186,10 @@ const Timer = () => {
 
                     {/* Timer display */}
                     <div className="absolute inset-0 flex items-center justify-center">                    <div className="text-center">
-                        <div className={`font-mono font-inter mb-1 ${isExpanded ? 'text-7xl' : 'text-4xl'}`}>
+                        <div className={`font-mono font-inter mb-1 ${isExpanded ? 'text-5xl sm:text-6xl lg:text-7xl' : 'text-4xl'}`}>
                             {formatTime(timeLeft)}
                         </div>
-                        <div className={`text-white/60 ${isExpanded ? 'text-lg' : 'text-sm'}`}>
+                        <div className={`text-white/60 ${isExpanded ? 'text-base sm:text-lg' : 'text-sm'}`}>
                             {currentState === TIMER_STATES.FOCUS ? 'Stay focused' : 'Take a break'}
                         </div>
                     </div>
