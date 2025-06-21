@@ -1,5 +1,5 @@
 import Task from "../models/Task.js";
-import Project from "../models/Project.js"; // Import to register the model with Mongoose
+import Project from "../models/Project.js";
 
 export const createTask = async (req, res) => {
   try {
