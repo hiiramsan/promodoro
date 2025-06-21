@@ -42,6 +42,7 @@ const Tasks = () => {
 
         fetchTasks();
     }, [user]);
+
     const toggleTask = async (id) => {
         try {
             const token = localStorage.getItem('token');
@@ -61,7 +62,9 @@ const Tasks = () => {
         } catch (error) {
             console.error('Error toggling task:', error);
         }
-    }; const addTask = async (e) => {
+    }; 
+    
+    const addTask = async (e) => {
         e.preventDefault();
         if (newTaskName.trim()) {
             try {
@@ -98,9 +101,12 @@ const Tasks = () => {
         setNewTaskName('');
         setNewTaskTags('');
         setShowAddTask(false);
-    }; return (
+    }; 
+    
+    return (
         <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg p-8 w-1/2 max-w-2xl min-w-[350px] w-full">
-            <h2 className="text-xl font-inter-bold mb-8">Tasks</h2>            {loading ? (
+            <h2 className="text-xl font-inter-bold mb-8">Tasks</h2>            
+            {loading ? (
                 <div className="text-center text-white/60">Loading tasks...</div>
             ) : !user ? (
                 <div className="text-center text-white/60">Please log in to view your tasks.</div>
@@ -136,10 +142,11 @@ const Tasks = () => {
                                         {tag}
                                     </span>
                                 ))}
-                            </div>                    </li>
+                            </div>                    
+                            </li>
                     ))}
 
-                    {/* Add Task Button */}
+
                     <li className="flex flex-row items-center justify-between">
                         <button
                             onClick={() => setShowAddTask(true)}
@@ -156,7 +163,7 @@ const Tasks = () => {
                         </button>
                     </li>
                 </ul>
-            )}{/* Add Task Container - freestyle form */}
+            )}
             {showAddTask && (
                 <div className="mt-6 p-4 bg-white/5 border border-white/20 rounded-xl">
                     <div className="space-y-3">

@@ -2,6 +2,7 @@ import Silk from '../components/Silk';
 import Timer from '../components/Timer';
 import Navbar from '../components/Navbar';
 import Tasks from '../components/Tasks';
+import Projects from '../components/Projects';
 
 const Home = () => {
     return (
@@ -23,6 +24,8 @@ const Home = () => {
                         <div className="flex flex-col w-full space-y-8">
                             <Tasks />
                             {/* here its gonna be projects */}
+                            <Projects />
+                            
                         </div>
                         <Timer />
                     </div>
