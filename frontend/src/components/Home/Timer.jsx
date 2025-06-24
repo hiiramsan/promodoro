@@ -8,7 +8,7 @@ const Timer = () => {
         LONG_BREAK: 'long_break'
     };    // Pomodoro timer state
     const [currentState, setCurrentState] = useState(TIMER_STATES.FOCUS);
-    const [timeLeft, setTimeLeft] = useState(25);
+    const [timeLeft, setTimeLeft] = useState(25*60);
     const [isActive, setIsActive] = useState(false);
     const [focusSessions, setFocusSessions] = useState(0);
     const [sessionsUntilLongBreak, setSessionsUntilLongBreak] = useState(4);
@@ -18,17 +18,16 @@ const Timer = () => {
     const getStateDuration = (state) => {
         switch (state) {
             case TIMER_STATES.FOCUS:
-                return 25;
+                return 25*60;
             case TIMER_STATES.SHORT_BREAK:
-                return 5;
+                return 5*60;
             case TIMER_STATES.LONG_BREAK:
-                return 15;
+                return 15*60;
             default:
-                return 25;
+                return 25*60;
         }
     };
 
-    // Get next state in the cycle
     const getNextState = () => {
         if (currentState === TIMER_STATES.FOCUS) {
             const nextFocusSessions = focusSessions + 1;
@@ -42,13 +41,13 @@ const Timer = () => {
         }
     };
 
-    // Switch to a specific state
     const switchToState = (newState) => {
         setIsActive(false);
         setCurrentState(newState);
         setTimeLeft(getStateDuration(newState));
         clearInterval(intervalRef.current);
-    };    // Skip to next state
+    };   
+    
     const skipToNext = (isAutomatic = false) => {
         const nextState = getNextState();
 
@@ -68,14 +67,15 @@ const Timer = () => {
         } else {
             setIsActive(false);
         }
-    };// Timer effect
+    };
+    
     useEffect(() => {
         if (isActive && timeLeft > 0) {
             intervalRef.current = setInterval(() => {
                 setTimeLeft(time => time - 1);
             }, 1000);
         } else if (timeLeft === 0 && isActive) {
-            // Timer finished, automatically skip to next and keep running
+
             skipToNext(true);
         } else {
             clearInterval(intervalRef.current);
@@ -83,6 +83,28 @@ const Timer = () => {
 
         return () => clearInterval(intervalRef.current);
     }, [isActive, timeLeft]);
+
+
+    useEffect(()=> {
+        const minutes = Math.floor(timeLeft/60);
+        const seconds = timeLeft % 60;
+
+        let state = "";
+
+        switch(currentState) {
+            case "focus":
+                state = "Focus";
+                break;
+            case "short_break":
+                state = "Short Break";
+                break;
+            case "long_break":
+                state = "Long Break";
+                break;
+        }
+
+        document.title = `${state} - ${minutes}:${seconds.toString().padStart(2,'0')}`
+    }, [timeLeft])
 
     const toggleTimer = () => {
         setIsActive(!isActive);
@@ -102,11 +124,11 @@ const Timer = () => {
     const getStateColor = (state) => {
         switch (state) {
             case TIMER_STATES.FOCUS:
-                return '#3B82F6'; // Blue
+                return '#3B82F6';
             case TIMER_STATES.SHORT_BREAK:
-                return '#10B981'; // Green
+                return '#10B981';
             case TIMER_STATES.LONG_BREAK:
-                return '#8B5CF6'; // Purple
+                return '#8B5CF6';
             default:
                 return '#3B82F6';
         }
@@ -123,7 +145,9 @@ const Timer = () => {
             default:
                 return 'Focus';
         }
-    }; return (
+    }; 
+    
+    return (
         <>
             {isExpanded && (
                 <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-all duration-300"></div>

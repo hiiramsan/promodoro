@@ -8,6 +8,7 @@ import Home from './pages/Home.jsx'
 import SignUp from './pages/SignUp.jsx'
 import Login from './pages/Login.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
+import ProjectsPage from './pages/ProjectsPage.jsx'
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -57,6 +58,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <Home />
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: '/projects',
+    element: (
+      <ProtectedRoute>
+        <ProjectsPage />
       </ProtectedRoute>
     )
   },
