@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
+import { useSounds } from "../../assets/context/SoundProvider";
 
 const Timer = () => {
+
+    const { start, pause, pop } = useSounds();
 
     const TIMER_STATES = {
         FOCUS: 'focus',
@@ -43,6 +46,7 @@ const Timer = () => {
     };
 
     const switchToState = (newState) => {
+        pop();
         setIsActive(false);
         setCurrentState(newState);
         setTimeLeft(getStateDuration(newState));
@@ -113,8 +117,10 @@ const Timer = () => {
    const toggleTimer = () => {
         if (!isActive) {
             localStorage.setItem('pomodoroStart', Date.now() - (getStateDuration(currentState) - timeLeft) * 1000);
+            start(); // sound??
         }
         setIsActive(!isActive);
+        pause();
     };
 
     const formatTime = (seconds) => {

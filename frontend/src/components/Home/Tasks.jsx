@@ -2,6 +2,7 @@ import axios from 'axios';
 import { useState, useEffect } from "react";
 import { useAuth } from '../../context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
+import { useSounds } from '../../assets/context/SoundProvider';
 
 const Tasks = () => {
     const { user } = useAuth();
@@ -11,6 +12,7 @@ const Tasks = () => {
     const [newTaskTags, setNewTaskTags] = useState('');
     const [loading, setLoading] = useState(true);
     const [tasksCompleted, setTasksCompleted] = useState(false);
+    const { pop } = useSounds();
 
     useEffect(() => {
         const fetchTasks = async () => {
@@ -79,51 +81,51 @@ const Tasks = () => {
     };
 
     const addTask = async (e) => {
-    e.preventDefault();
-    if (!newTaskName.trim()) return;
+        e.preventDefault();
+        if (!newTaskName.trim()) return;
 
-    const token = localStorage.getItem('token');
-    if (!token) return;
+        const token = localStorage.getItem('token');
+        if (!token) return;
 
-    const tempId = uuidv4();
-    const optimisticTask = {
-        id: tempId,
-        name: newTaskName.trim(),
-        completed: false,
-        tags: newTaskTags.trim() ? newTaskTags.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
-        project: null,
-        isTemporary: true
-    };
-
-    setTasks(prev => [optimisticTask, ...prev]);
-    setNewTaskName('');
-    setNewTaskTags('');
-    setShowAddTask(false);
-
-    try {
-        const response = await axios.post('http://localhost:3000/api/tasks', {
-            title: optimisticTask.name,
-            description: newTaskTags.trim() || null
-        }, {
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
-        });
-
-        const createdTask = {
-            id: response.data._id,
-            name: response.data.title,
-            completed: response.data.isCompleted,
-            tags: response.data.description ? response.data.description.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
-            project: response.data.project
+        const tempId = uuidv4();
+        const optimisticTask = {
+            id: tempId,
+            name: newTaskName.trim(),
+            completed: false,
+            tags: newTaskTags.trim() ? newTaskTags.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+            project: null,
+            isTemporary: true
         };
 
-        setTasks(prev => prev.map(task => task.id === tempId ? createdTask : task));
-    } catch (error) {
-        console.error('Error creating task:', error);
-        setTasks(prev => prev.filter(task => task.id !== tempId));
-    }
-};
+        setTasks(prev => [optimisticTask, ...prev]);
+        setNewTaskName('');
+        setNewTaskTags('');
+        setShowAddTask(false);
+
+        try {
+            const response = await axios.post('http://localhost:3000/api/tasks', {
+                title: optimisticTask.name,
+                description: newTaskTags.trim() || null
+            }, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            const createdTask = {
+                id: response.data._id,
+                name: response.data.title,
+                completed: response.data.isCompleted,
+                tags: response.data.description ? response.data.description.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+                project: response.data.project
+            };
+
+            setTasks(prev => prev.map(task => task.id === tempId ? createdTask : task));
+        } catch (error) {
+            console.error('Error creating task:', error);
+            setTasks(prev => prev.filter(task => task.id !== tempId));
+        }
+    };
 
     const cancelAddTask = (e) => {
         e.preventDefault();
@@ -140,6 +142,7 @@ const Tasks = () => {
         const previousTasks = [...tasks];
 
         setTasks(prev => prev.filter(task => !task.completed));
+        pop();
 
         try {
             await axios.delete(`http://localhost:3000/api/tasks/completed`, {
@@ -147,7 +150,7 @@ const Tasks = () => {
                     Authorization: `Bearer ${token}`
                 }
             });
-        
+
         } catch (error) {
             console.error('Error deleting tasks', error);
             setTasks(previousTasks);
