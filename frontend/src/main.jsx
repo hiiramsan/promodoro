@@ -9,10 +9,11 @@ import SignUp from './pages/SignUp.jsx'
 import Login from './pages/Login.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import ProjectsPage from './pages/ProjectsPage.jsx'
+import { SoundProvider } from './assets/context/SoundProvider.jsx'
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white">
@@ -23,13 +24,13 @@ const ProtectedRoute = ({ children }) => {
       </div>
     );
   }
-  
+
   return user ? children : <Navigate to="/login" replace />;
 };
 
 const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white">
@@ -40,7 +41,7 @@ const PublicRoute = ({ children }) => {
       </div>
     );
   }
-  
+
   return !user ? children : <Navigate to="/home" replace />;
 };
 
@@ -89,8 +90,10 @@ const router = createBrowserRouter([
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <SoundProvider>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </SoundProvider>
   </StrictMode>,
 )
