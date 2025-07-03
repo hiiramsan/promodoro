@@ -4,7 +4,6 @@ import axios from "axios";
 import { Link } from "react-router";
 
 const Projects = () => {
-
     const { user } = useAuth();
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);

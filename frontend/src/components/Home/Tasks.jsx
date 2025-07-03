@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { useState, useEffect } from "react";
 import { useAuth } from '../../context/AuthContext';
+import { v4 as uuidv4 } from 'uuid';
 
 const Tasks = () => {
     const { user } = useAuth();
@@ -9,6 +10,7 @@ const Tasks = () => {
     const [newTaskName, setNewTaskName] = useState('');
     const [newTaskTags, setNewTaskTags] = useState('');
     const [loading, setLoading] = useState(true);
+    const [tasksCompleted, setTasksCompleted] = useState(false);
 
     useEffect(() => {
         const fetchTasks = async () => {
@@ -43,69 +45,128 @@ const Tasks = () => {
         fetchTasks();
     }, [user]);
 
-    const toggleTask = async (id) => {
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) return;
+    useEffect(() => {
+        setTasksCompleted(false);
+        tasks.map((task) => {
+            if (task.completed) {
+                setTasksCompleted(true);
+            }
+        })
+    }, [tasks])
 
+    const toggleTask = async (id) => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const previousTasks = [...tasks];
+
+        setTasks(tasks =>
+            tasks.map(task =>
+                task.id === id ? { ...task, completed: !task.completed } : task
+            )
+        );
+
+        try {
             await axios.put(`http://localhost:3000/api/tasks/${id}`, {}, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
             });
-
-            setTasks(tasks =>
-                tasks.map(task =>
-                    task.id === id ? { ...task, completed: !task.completed } : task
-                )
-            );
         } catch (error) {
             console.error('Error toggling task:', error);
-        }
-    }; 
-    
-    const addTask = async (e) => {
-        e.preventDefault();
-        if (newTaskName.trim()) {
-            try {
-                const token = localStorage.getItem('token');
-                if (!token) return; const response = await axios.post('http://localhost:3000/api/tasks', {
-                    title: newTaskName.trim(),
-                    description: newTaskTags.trim() || null
-                }, {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                });
-
-                const newTask = {
-                    id: response.data._id,
-                    name: response.data.title,
-                    completed: response.data.isCompleted,
-                    tags: response.data.description ? response.data.description.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
-                    project: response.data.project
-                };
-
-                setTasks(prev => [newTask, ...prev]);
-                setNewTaskName('');
-                setNewTaskTags('');
-                setShowAddTask(false);
-            } catch (error) {
-                console.error('Error creating task:', error);
-            }
+            setTasks(previousTasks);
         }
     };
+
+    const addTask = async (e) => {
+    e.preventDefault();
+    if (!newTaskName.trim()) return;
+
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const tempId = uuidv4();
+    const optimisticTask = {
+        id: tempId,
+        name: newTaskName.trim(),
+        completed: false,
+        tags: newTaskTags.trim() ? newTaskTags.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+        project: null,
+        isTemporary: true
+    };
+
+    setTasks(prev => [optimisticTask, ...prev]);
+    setNewTaskName('');
+    setNewTaskTags('');
+    setShowAddTask(false);
+
+    try {
+        const response = await axios.post('http://localhost:3000/api/tasks', {
+            title: optimisticTask.name,
+            description: newTaskTags.trim() || null
+        }, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+
+        const createdTask = {
+            id: response.data._id,
+            name: response.data.title,
+            completed: response.data.isCompleted,
+            tags: response.data.description ? response.data.description.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+            project: response.data.project
+        };
+
+        setTasks(prev => prev.map(task => task.id === tempId ? createdTask : task));
+    } catch (error) {
+        console.error('Error creating task:', error);
+        setTasks(prev => prev.filter(task => task.id !== tempId));
+    }
+};
 
     const cancelAddTask = (e) => {
         e.preventDefault();
         setNewTaskName('');
         setNewTaskTags('');
         setShowAddTask(false);
-    }; 
-    
+    };
+
+    const handleDeleteCompletedTasks = async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const previousTasks = [...tasks];
+
+        setTasks(prev => prev.filter(task => !task.completed));
+
+        try {
+            await axios.delete(`http://localhost:3000/api/tasks/completed`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+        
+        } catch (error) {
+            console.error('Error deleting tasks', error);
+            setTasks(previousTasks);
+        }
+    };
+
     return (
         <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg p-8 w-1/2 max-w-2xl min-w-[350px] w-full">
-            <h2 className="text-xl font-inter-bold mb-8">Tasks</h2>            
+            <div className="flex justify-between items-center mb-8">
+                <h2 className="text-xl font-inter-bold">Tasks</h2>
+                {tasksCompleted && (
+                    <button
+                        onClick={handleDeleteCompletedTasks}
+                        className="text-sm text-white/40 hover:text-white/60 transition-colors duration-200 cursor-pointer underline"
+                    >
+                        Clear completed
+                    </button>
+                )}
+            </div>
             {loading ? (
                 <div className="text-center text-white/60">Loading tasks...</div>
             ) : !user ? (
@@ -142,10 +203,9 @@ const Tasks = () => {
                                         {tag}
                                     </span>
                                 ))}
-                            </div>                    
-                            </li>
+                            </div>
+                        </li>
                     ))}
-
 
                     <li className="flex flex-row items-center justify-between">
                         <button
