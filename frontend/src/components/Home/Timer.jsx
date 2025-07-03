@@ -1,17 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 
 const Timer = () => {
-    // Timer states
+
     const TIMER_STATES = {
         FOCUS: 'focus',
         SHORT_BREAK: 'short_break',
         LONG_BREAK: 'long_break'
-    };    // Pomodoro timer state
+    };
+
     const [currentState, setCurrentState] = useState(TIMER_STATES.FOCUS);
     const [timeLeft, setTimeLeft] = useState(25*60);
     const [isActive, setIsActive] = useState(false);
     const [focusSessions, setFocusSessions] = useState(0);
-    const [sessionsUntilLongBreak, setSessionsUntilLongBreak] = useState(4);
+    const [sessionsUntilLongBreak] = useState(4);
     const [isExpanded, setIsExpanded] = useState(false);
     const intervalRef = useRef(null);
 
@@ -45,28 +46,22 @@ const Timer = () => {
         setIsActive(false);
         setCurrentState(newState);
         setTimeLeft(getStateDuration(newState));
+        localStorage.setItem('promodoroStart', Date.now());
         clearInterval(intervalRef.current);
     };   
     
     const skipToNext = (isAutomatic = false) => {
         const nextState = getNextState();
-
-        // Update focus sessions count if completing a focus session
         if (currentState === TIMER_STATES.FOCUS) {
             setFocusSessions(prev => prev + 1);
         }
 
-        // Switch to new state
         setCurrentState(nextState);
-        setTimeLeft(getStateDuration(nextState));
+        const newDuration = getStateDuration(nextState);
+        setTimeLeft(newDuration);
+        localStorage.setItem('promodoroStart', Date.now());
         clearInterval(intervalRef.current);
-
-        // If it's an automatic transition, keep the timer running
-        if (isAutomatic) {
-            setIsActive(true);
-        } else {
-            setIsActive(false);
-        }
+        setIsActive(isAutomatic);
     };
     
     useEffect(() => {
@@ -75,7 +70,6 @@ const Timer = () => {
                 setTimeLeft(time => time - 1);
             }, 1000);
         } else if (timeLeft === 0 && isActive) {
-
             skipToNext(true);
         } else {
             clearInterval(intervalRef.current);
@@ -84,11 +78,21 @@ const Timer = () => {
         return () => clearInterval(intervalRef.current);
     }, [isActive, timeLeft]);
 
+    useEffect(() => {
+        const savedStart = localStorage.getItem('pomodoroStart');
+        if(savedStart) {
+            const elapsed = Math.floor((Date.now() - Number(savedStart)) / 1000);
+            const duration = getStateDuration(currentState);
+            const remaining = duration - elapsed;
+            setTimeLeft(remaining > 0 ? remaining : 0);
+        } else {
+            localStorage.setItem('pomodoroStart', Date.now());
+        }
+    }, [])
 
     useEffect(()=> {
         const minutes = Math.floor(timeLeft/60);
         const seconds = timeLeft % 60;
-
         let state = "";
 
         switch(currentState) {
@@ -106,7 +110,10 @@ const Timer = () => {
         document.title = `${state} - ${minutes}:${seconds.toString().padStart(2,'0')}`
     }, [timeLeft])
 
-    const toggleTimer = () => {
+   const toggleTimer = () => {
+        if (!isActive) {
+            localStorage.setItem('pomodoroStart', Date.now() - (getStateDuration(currentState) - timeLeft) * 1000);
+        }
         setIsActive(!isActive);
     };
 

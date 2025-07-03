@@ -1,5 +1,5 @@
 import express from 'express'
-import { createTask, deleteTask, getUserTasks, toggleTask } from '../controllers/tasksController.js';
+import { createTask, deleteAllTasks, deleteTask, getUserTasks, toggleTask } from '../controllers/tasksController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const tasksRouter = express.Router();
@@ -11,8 +11,11 @@ tasksRouter.route('/')
   .get(getUserTasks)   
   .post(createTask); 
 
+tasksRouter.route('/completed')
+  .delete(deleteAllTasks)
+
 tasksRouter.route('/:id')
   .put(toggleTask)
-  .delete(deleteTask); 
+  .delete(deleteTask);
 
 export default tasksRouter;
