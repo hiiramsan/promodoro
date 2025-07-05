@@ -4,19 +4,22 @@ import useSound from 'use-sound';
 import startSound from '../sounds/start.mp3';
 import pauseSound from '../sounds/pause.mp3';
 import popSound from '../sounds/pop.mp3';
+import ringSound from '../sounds/ring.mp3';
 
 const SoundContext = createContext();
 
 export const SoundProvider = ({ children }) => {
-  const [playStart] = useSound(startSound, { volume: 0.4 });
-  const [playPause] = useSound(pauseSound, { volume: 0.4 });
-  const [playPop] = useSound(popSound, { volume: 0.4 });
+  const [playStart] = useSound(startSound, { volume: 0.2 });
+  const [playPause] = useSound(pauseSound, { volume: 0.2 });
+  const [playPop] = useSound(popSound, { volume: 0.2 });
+  const [playRing] = useSound(ringSound, { volume: 0.2 });
 
 
   const sounds = {
     start: playStart,
     pause: playPause,
-    pop: playPop
+    pop: playPop,
+    ring: playRing
   };
 
   return (
