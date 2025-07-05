@@ -32,8 +32,7 @@ const Tasks = () => {
                     id: task._id,
                     name: task.title,
                     completed: task.isCompleted,
-                    tags: task.description ? task.description.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
-                    project: task.project
+                    tags: task.description ? task.description.split(',').map(tag => tag.trim()).filter(tag => tag) : []
                 }));
 
                 setTasks(transformedTasks);
@@ -55,6 +54,22 @@ const Tasks = () => {
             }
         })
     }, [tasks])
+
+    const handleTaskNameChange = (e) => {
+        setNewTaskName(e.target.value);
+    };
+
+
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+            setShowAddTask(false);
+            setNewTaskName('');
+            setNewTaskTags('');
+        } else if (e.key === 'Enter') {
+            addTask(e);
+        }
+    };
 
     const toggleTask = async (id) => {
         const token = localStorage.getItem('token');
@@ -93,7 +108,6 @@ const Tasks = () => {
             name: newTaskName.trim(),
             completed: false,
             tags: newTaskTags.trim() ? newTaskTags.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
-            project: null,
             isTemporary: true
         };
 
@@ -104,7 +118,7 @@ const Tasks = () => {
 
         try {
             const response = await axios.post('http://localhost:3000/api/tasks', {
-                title: optimisticTask.name,
+                title: newTaskName.trim(),
                 description: newTaskTags.trim() || null
             }, {
                 headers: {
@@ -116,8 +130,7 @@ const Tasks = () => {
                 id: response.data._id,
                 name: response.data.title,
                 completed: response.data.isCompleted,
-                tags: response.data.description ? response.data.description.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
-                project: response.data.project
+                tags: response.data.description ? response.data.description.split(',').map(tag => tag.trim()).filter(tag => tag) : []
             };
 
             setTasks(prev => prev.map(task => task.id === tempId ? createdTask : task));
@@ -126,6 +139,16 @@ const Tasks = () => {
             setTasks(prev => prev.filter(task => task.id !== tempId));
         }
     };
+
+    useEffect(()=> {
+        if(showAddTask) {
+            window.addEventListener("keydown", handleKeyDown);
+            return () => {
+                window.removeEventListener("keydown", handleKeyDown);
+            };
+        }
+    }, [showAddTask, handleKeyDown, addTask]);
+
 
     const cancelAddTask = (e) => {
         e.preventDefault();
@@ -158,7 +181,7 @@ const Tasks = () => {
     };
 
     return (
-        <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg p-8 w-1/2 max-w-2xl min-w-[350px] w-full">
+        <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg p-8 max-w-2xl min-w-[350px] w-full">
             <div className="flex justify-between items-center mb-8">
                 <h2 className="text-xl font-inter-bold">Tasks</h2>
                 {tasksCompleted && (
@@ -209,7 +232,11 @@ const Tasks = () => {
                             </div>
                         </li>
                     ))}
-
+                    {tasks.length === 0 && (
+                        <li className="text-center text-white/60 py-2">
+                            What do you need to get done today?
+                        </li>
+                    )}
                     <li className="flex flex-row items-center justify-between">
                         <button
                             onClick={() => setShowAddTask(true)}
@@ -228,36 +255,49 @@ const Tasks = () => {
                 </ul>
             )}
             {showAddTask && (
-                <div className="mt-6 p-4 bg-white/5 border border-white/20 rounded-xl">
-                    <div className="space-y-3">
-                        <input
-                            type="text"
-                            value={newTaskName}
-                            onChange={(e) => setNewTaskName(e.target.value)}
-                            placeholder="What do you need to do?"
-                            className="w-full px-3 py-3 bg-transparent border-none text-white placeholder-white/50 focus:outline-none text-lg font-inter-bold"
-                            autoFocus
-                        />
-                        <input
-                            type="text"
-                            value={newTaskTags}
-                            onChange={(e) => setNewTaskTags(e.target.value)}
-                            placeholder="Add tags: work, personal, urgent..."
-                            className="w-full px-3 py-2 bg-transparent border-none text-white placeholder-white/40 focus:outline-none text-sm" />
-                        <div className="flex justify-end items-center space-x-3 pt-2">
+                <div className="mt-6 p-4 bg-white/5 border border-white/20 rounded-xl relative">
+                    <div className="space-y-4">
+                        <div>
+                            <input
+                                type="text"
+                                value={newTaskName}
+                                onChange={handleTaskNameChange}
+                                placeholder="What do you need to do?"
+                                className="w-full px-3 py-2 bg-transparent border-none text-white placeholder-white/50 focus:outline-none text-lg font-inter-bold"
+                                autoFocus
+                            />
+                        </div>
+                        
+                        <div>
+                            <input
+                                type="text"
+                                value={newTaskTags}
+                                onChange={(e) => setNewTaskTags(e.target.value)}
+                                placeholder="Add tags (comma-separated): work, personal, urgent..."
+                                className="w-full px-3 py-2 bg-transparent border-none text-white placeholder-white/40 focus:outline-none text-sm"
+                            />
+                        </div>
+                        
+                        <div className="flex justify-end items-center space-x-4 pt-2">
                             <button
                                 type="button"
                                 onClick={cancelAddTask}
-                                className="text-white/60 hover:text-white font-medium transition-all duration-200 cursor-pointer"
+                                className="text-white/60 hover:text-white font-medium transition-all duration-200 cursor-pointer flex items-center space-x-2"
                             >
-                                Cancel
+                                <span>Cancel</span>
+                                <kbd className="inline-flex items-center px-1 py-0.5 rounded text-xs font-mono bg-white/10 border border-white/20 text-white/70">
+                                    Esc
+                                </kbd>
                             </button>
                             <button
                                 type="button"
                                 onClick={addTask}
-                                className="px-4 py-2 bg-black hover:bg-gray-900 text-white rounded-lg font-medium transition-all duration-200 cursor-pointer border border-white/20"
+                                className="px-4 py-1.5 bg-black hover:bg-gray-900 text-white rounded-lg font-medium transition-all duration-200 cursor-pointer border border-white/20 flex items-center space-x-2"
                             >
-                                Save
+                                <span>Save task</span>
+                                <kbd className="inline-flex items-center px-1 py-0.5 rounded text-xs font-mono bg-white/10 border border-white/20 text-white/70">
+                                    Enter
+                                </kbd>
                             </button>
                         </div>
                     </div>

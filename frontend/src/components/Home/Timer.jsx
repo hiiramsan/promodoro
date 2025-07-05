@@ -3,7 +3,7 @@ import { useSounds } from "../../assets/context/SoundProvider";
 
 const Timer = () => {
 
-    const { start, pause, pop } = useSounds();
+    const { start, pause, pop, ring } = useSounds();
 
     const TIMER_STATES = {
         FOCUS: 'focus',
@@ -33,6 +33,7 @@ const Timer = () => {
     };
 
     const getNextState = () => {
+        ring();
         if (currentState === TIMER_STATES.FOCUS) {
             const nextFocusSessions = focusSessions + 1;
             if (nextFocusSessions % sessionsUntilLongBreak === 0) {
@@ -167,7 +168,7 @@ const Timer = () => {
             )}            <div className={`backdrop-blur-md border border-white/20 rounded-2xl shadow-lg flex flex-col items-center transition-all duration-300 ${isExpanded
                 ? 'fixed inset-4 z-50 justify-start bg-white/5 backdrop-blur-lg border-white/25 shadow-xl p-4 sm:p-6 max-h-screen overflow-y-auto'
                 : 'w-1/2 min-h-[400px] justify-center bg-white/10 p-6 w-full'
-                }`}>                {/* Header with title and expand button */}
+                }`}>            
                 <div className="flex justify-between items-center w-full mb-6">
                     <h2 className={`font-inter-bold ${isExpanded ? 'text-xl text-white' : 'text-xl'}`}>Timer</h2>
                     <button
@@ -194,10 +195,9 @@ const Timer = () => {
                             {getStateLabel(state)}
                         </button>
                     ))}
-                </div>{/* Circular Progress Timer */}
+                </div>
                 <div className={`relative mb-6 flex-shrink-0 ${isExpanded ? 'w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80' : 'w-52 h-52'}`}>
                     <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                        {/* Background circle */}
                         <circle
                             cx="50"
                             cy="50"
@@ -206,7 +206,6 @@ const Timer = () => {
                             strokeWidth="3"
                             fill="none"
                         />
-                        {/* Progress circle */}
                         <circle
                             cx="50"
                             cy="50"
@@ -221,7 +220,6 @@ const Timer = () => {
                         />
                     </svg>
 
-                    {/* Timer display */}
                     <div className="absolute inset-0 flex items-center justify-center">                    <div className="text-center">
                         <div className={`font-mono font-inter mb-1 ${isExpanded ? 'text-5xl sm:text-6xl lg:text-7xl' : 'text-4xl'}`}>
                             {formatTime(timeLeft)}
@@ -231,7 +229,7 @@ const Timer = () => {
                         </div>
                     </div>
                     </div>
-                </div>            {/* Control buttons */}
+                </div>            
                 <div className="relative flex justify-center mb-4">
                     <button
                         onClick={toggleTimer}
