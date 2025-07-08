@@ -7,15 +7,16 @@ import { useSounds } from '../../assets/context/SoundProvider';
 const Tasks = () => {
     const { user } = useAuth();
     const [tasks, setTasks] = useState([]);
+    const [projects, setProjects] = useState([]);
     const [showAddTask, setShowAddTask] = useState(false);
     const [newTaskName, setNewTaskName] = useState('');
-    const [newTaskTags, setNewTaskTags] = useState('');
+    const [selectedProject, setSelectedProject] = useState('');
     const [loading, setLoading] = useState(true);
     const [tasksCompleted, setTasksCompleted] = useState(false);
     const { pop } = useSounds();
 
     useEffect(() => {
-        const fetchTasks = async () => {
+        const fetchTasksAndProjects = async () => {
             try {
                 const token = localStorage.getItem('token');
                 if (!token || !user) {
@@ -23,27 +24,34 @@ const Tasks = () => {
                     return;
                 }
 
-                const response = await axios.get('http://localhost:3000/api/tasks', {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                });
-                const transformedTasks = response.data.map(task => ({
+                // Fetch tasks and projects in parallel
+                const [tasksResponse, projectsResponse] = await Promise.all([
+                    axios.get('http://localhost:3000/api/tasks', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    }),
+                    axios.get('http://localhost:3000/api/projects', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    })
+                ]);
+
+                console.log(tasksResponse.data);
+                const transformedTasks = tasksResponse.data.map(task => ({
                     id: task._id,
                     name: task.title,
                     completed: task.isCompleted,
-                    tags: task.description ? task.description.split(',').map(tag => tag.trim()).filter(tag => tag) : []
+                    project: task.project
                 }));
 
                 setTasks(transformedTasks);
+                setProjects(projectsResponse.data);
             } catch (error) {
-                console.error('Error fetching tasks:', error);
+                console.error('Error fetching data:', error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchTasks();
+        fetchTasksAndProjects();
     }, [user]);
 
     useEffect(() => {
@@ -65,7 +73,7 @@ const Tasks = () => {
         if (e.key === 'Escape') {
             setShowAddTask(false);
             setNewTaskName('');
-            setNewTaskTags('');
+            setSelectedProject('');
         } else if (e.key === 'Enter') {
             addTask(e);
         }
@@ -103,23 +111,24 @@ const Tasks = () => {
         if (!token) return;
 
         const tempId = uuidv4();
+        const selectedProjectData = selectedProject ? projects.find(p => p._id === selectedProject) : null;
         const optimisticTask = {
             id: tempId,
             name: newTaskName.trim(),
             completed: false,
-            tags: newTaskTags.trim() ? newTaskTags.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+            project: selectedProjectData,
             isTemporary: true
         };
 
         setTasks(prev => [optimisticTask, ...prev]);
         setNewTaskName('');
-        setNewTaskTags('');
+        setSelectedProject('');
         setShowAddTask(false);
 
         try {
             const response = await axios.post('http://localhost:3000/api/tasks', {
                 title: newTaskName.trim(),
-                description: newTaskTags.trim() || null
+                projectId: selectedProject || null
             }, {
                 headers: {
                     Authorization: `Bearer ${token}`
@@ -130,7 +139,7 @@ const Tasks = () => {
                 id: response.data._id,
                 name: response.data.title,
                 completed: response.data.isCompleted,
-                tags: response.data.description ? response.data.description.split(',').map(tag => tag.trim()).filter(tag => tag) : []
+                project: response.data.project
             };
 
             setTasks(prev => prev.map(task => task.id === tempId ? createdTask : task));
@@ -153,7 +162,7 @@ const Tasks = () => {
     const cancelAddTask = (e) => {
         e.preventDefault();
         setNewTaskName('');
-        setNewTaskTags('');
+        setSelectedProject('');
         setShowAddTask(false);
     };
 
@@ -221,14 +230,13 @@ const Tasks = () => {
                                 </span>
                             </div>
                             <div className="flex space-x-2 flex-shrink-0 ml-4">
-                                {task.tags.map(tag => (
+                                {task.project && (
                                     <span
-                                        key={tag}
-                                        className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-700/30 border border-blue-700/40 text-blue-200"
+                                        className={`px-3 py-1 rounded-full text-xs font-medium bg-${task.project.color}-700/30 border border-${task.project.color}-700/40 text-${task.project.color}-200`}
                                     >
-                                        {tag}
+                                        {task.project.name}
                                     </span>
-                                ))}
+                                )}
                             </div>
                         </li>
                     ))}
@@ -269,13 +277,36 @@ const Tasks = () => {
                         </div>
                         
                         <div>
-                            <input
-                                type="text"
-                                value={newTaskTags}
-                                onChange={(e) => setNewTaskTags(e.target.value)}
-                                placeholder="Add tags (comma-separated): work, personal, urgent..."
-                                className="w-full px-3 py-2 bg-transparent border-none text-white placeholder-white/40 focus:outline-none text-sm"
-                            />
+                            <div className="mb-2">
+                                <span className="text-white/70 text-sm font-medium">Project (optional)</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedProject('')}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-medium border ${
+                                        selectedProject === ''
+                                            ? 'bg-white/30 border-white/50 text-white'
+                                            : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10 hover:text-white/80'
+                                    }`}
+                                >
+                                    No Project
+                                </button>
+                                {projects.map(project => (
+                                    <button
+                                        key={project._id}
+                                        type="button"
+                                        onClick={() => setSelectedProject(project._id)}
+                                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 border ${
+                                            selectedProject === project._id
+                                                ? `bg-${project.color}-700/40 border-${project.color}-600/60 text-${project.color}-200`
+                                                : `bg-${project.color}-700/20 border-${project.color}-700/30 text-${project.color}-300/70 hover:bg-${project.color}-700/30 hover:text-${project.color}-200`
+                                        }`}
+                                    >
+                                        {project.name}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                         
                         <div className="flex justify-end items-center space-x-4 pt-2">

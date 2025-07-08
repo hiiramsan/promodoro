@@ -11,6 +11,9 @@ export const createTask = async (req, res) => {
       project: req.body.projectId || null
     });
 
+    // Populate the project data before sending response
+    await task.populate('project', 'name color');
+
     res.status(201).json(task);
   } catch (error) {
     res.status(500).json({ message: 'Error creating task', error: error.message });

@@ -9,6 +9,7 @@ import SignUp from './pages/SignUp.jsx'
 import Login from './pages/Login.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import ProjectsPage from './pages/ProjectsPage.jsx'
+import ProjectDetail from './pages/ProjectDetail.jsx'
 import { SoundProvider } from './assets/context/SoundProvider.jsx'
 
 const ProtectedRoute = ({ children }) => {
@@ -67,6 +68,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <ProjectsPage />
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: '/projects/:id',
+    element: (
+      <ProtectedRoute>
+        <ProjectDetail />
       </ProtectedRoute>
     )
   },
