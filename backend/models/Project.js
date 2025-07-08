@@ -13,7 +13,7 @@ const projectSchema = new mongoose.Schema({
     },
     color: {
         type: String,
-        default: '#3b82f6'
+        default: 'blue'
     }
 }, { timestamps: true });
 

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
 export default function ProjectsSlider() {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentSlide, setCurrentSlide] = useState(0);
@@ -12,9 +14,9 @@ export default function ProjectsSlider() {
     const [newProjectColor, setNewProjectColor] = useState('#3b82f6');
 
     const predefinedColors = [
-        '#3b82f6', '#ef4444', '#10b981', '#f59e0b', 
-        '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
-        '#f97316', '#6366f1', '#14b8a6', '#eab308'
+        'blue', 'red', 'yellow', 'orange', 'purple',
+        'pink', 'cyan',
+
     ];
 
     useEffect(() => {
@@ -49,6 +51,26 @@ export default function ProjectsSlider() {
 
         fetchProjects();
     }, [user]);
+
+    // Handle escape key to close modal
+    useEffect(() => {
+        const handleEscape = (event) => {
+            if (event.key === 'Escape' && showAddProject) {
+                cancelAddProject();
+            }
+        };
+
+        if (showAddProject) {
+            document.addEventListener('keydown', handleEscape);
+            // Prevent body scroll when modal is open
+            document.body.style.overflow = 'hidden';
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleEscape);
+            document.body.style.overflow = 'unset';
+        };
+    }, [showAddProject]);
 
     const itemsPerSlide = 3;
     const totalSlides = Math.ceil(projects.length / itemsPerSlide);
@@ -87,7 +109,7 @@ export default function ProjectsSlider() {
 
             setProjects(prev => [...prev, newProject]);
             setNewProjectName('');
-            setNewProjectColor('#3b82f6');
+            setNewProjectColor('blue');
             setShowAddProject(false);
         } catch (error) {
             console.error('Error adding project:', error);
@@ -98,6 +120,12 @@ export default function ProjectsSlider() {
         setNewProjectName('');
         setNewProjectColor('#3b82f6');
         setShowAddProject(false);
+    };
+
+    const handleModalBackdropClick = (e) => {
+        if (e.target === e.currentTarget) {
+            cancelAddProject();
+        }
     };
 
     const getCurrentSlideProjects = () => {
@@ -176,12 +204,12 @@ export default function ProjectsSlider() {
                                     {projects.slice(slideIndex * itemsPerSlide, (slideIndex + 1) * itemsPerSlide).map(project => (
                                         <div
                                             key={project.id}
+                                            onClick={() => navigate(`/projects/${project.id}`)}
                                             className="group relative backdrop-blur-md bg-white/5 border border-white/10 rounded-xl shadow-lg p-6 hover:bg-white/10 transition-all duration-200 cursor-pointer"
                                         >
                                             <div className="flex items-center justify-between mb-4">
                                                 <div
-                                                    className="w-4 h-4 rounded-full flex-shrink-0"
-                                                    style={{ backgroundColor: project.color }}
+                                                    className={`w-4 h-4 rounded-full flex-shrink-0 bg-${project.color}-700`}
                                                 />
                                                 <div className="text-xs text-white/40 font-inter">
                                                     {new Date(project.createdAt).toLocaleDateString()}
@@ -201,7 +229,6 @@ export default function ProjectsSlider() {
                                         </div>
                                     ))}
                                     
-                                    {/* Add Project Card */}
                                     {slideIndex === totalSlides - 1 && (
                                         <div
                                             onClick={() => setShowAddProject(true)}
@@ -228,50 +255,75 @@ export default function ProjectsSlider() {
             </div>
 
             {showAddProject && (
-                <div className="mt-6 p-4 bg-white/5 border border-white/20 rounded-xl">
-                    <div className="space-y-4">
-                        <input
-                            type="text"
-                            value={newProjectName}
-                            onChange={(e) => setNewProjectName(e.target.value)}
-                            placeholder="Project name..."
-                            className="w-full px-3 py-3 bg-transparent border-none text-white placeholder-white/50 focus:outline-none text-lg font-inter-bold"
-                            autoFocus
-                        />
+                <div 
+                    className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
+                    onClick={handleModalBackdropClick}
+                >
+                    <div className="relative max-w-md w-full backdrop-blur-lg bg-white/15 border border-white/15 rounded-2xl shadow-2xl p-6 transform transition-all duration-300 scale-100 animate-in fade-in-0 zoom-in-95">
+                        {/* Close button */}
+                        <button
+                            onClick={cancelAddProject}
+                            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                        >
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
                         
-                        <div className="space-y-2">
-                            <label className="text-sm text-white/60 font-inter">Choose a color:</label>
-                            <div className="flex flex-wrap gap-2">
-                                {predefinedColors.map(color => (
-                                    <button
-                                        key={color}
-                                        onClick={() => setNewProjectColor(color)}
-                                        className={`w-8 h-8 rounded-full border-2 transition-all duration-200 cursor-pointer ${
-                                            newProjectColor === color 
-                                                ? 'border-white scale-110' 
-                                                : 'border-white/20 hover:border-white/40'
-                                        }`}
-                                        style={{ backgroundColor: color }}
-                                    />
-                                ))}
-                            </div>
+                        {/* Header */}
+                        <div className="mb-6">
+                            <h3 className="text-xl font-inter-bold text-white mb-2">Create New Project</h3>
+                            <p className="text-sm text-white/60 font-inter">Add a new project to organize your tasks</p>
                         </div>
                         
-                        <div className="flex justify-end items-center space-x-3 pt-2">
-                            <button
-                                type="button"
-                                onClick={cancelAddProject}
-                                className="text-white/60 hover:text-white font-medium transition-all duration-200 cursor-pointer"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={addProject}
-                                className="px-4 py-2 bg-black hover:bg-gray-900 text-white rounded-lg font-medium transition-all duration-200 cursor-pointer border border-white/20"
-                            >
-                                Save
-                            </button>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm text-white/60 font-inter mb-2">Project Name</label>
+                                <input
+                                    type="text"
+                                    value={newProjectName}
+                                    onChange={(e) => setNewProjectName(e.target.value)}
+                                    placeholder="Enter project name..."
+                                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30 transition-all duration-200"
+                                    autoFocus
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm text-white/60 font-inter mb-3">Choose a color</label>
+                                <div className="flex flex-wrap gap-3">
+                                    {predefinedColors.map(color => (
+                                        <button
+                                            key={color}
+                                            onClick={() => setNewProjectColor(color)}
+                                            className={`w-10 h-10 rounded-full border-2 transition-all duration-200 cursor-pointer hover:scale-110 ${
+                                                newProjectColor === color 
+                                                    ? 'border-white scale-115 shadow-lg' 
+                                                    : 'border-white/20 hover:border-white/40'
+                                            }`}
+                                            style={{ backgroundColor: color }}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            <div className="flex justify-end items-center space-x-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={cancelAddProject}
+                                    className="px-4 py-2 text-white/60 hover:text-white font-medium transition-all duration-200 cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={addProject}
+                                    disabled={!newProjectName.trim()}
+                                    className="px-6 py-2 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:text-white/40 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 cursor-pointer border border-white/20 hover:border-white/30"
+                                >
+                                    Create Project
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -51,7 +51,7 @@ const Timer = () => {
         setIsActive(false);
         setCurrentState(newState);
         setTimeLeft(getStateDuration(newState));
-        localStorage.setItem('promodoroStart', Date.now());
+        localStorage.removeItem('pomodoroStart'); // Clear saved start time when switching states
         clearInterval(intervalRef.current);
     };   
     
@@ -64,7 +64,7 @@ const Timer = () => {
         setCurrentState(nextState);
         const newDuration = getStateDuration(nextState);
         setTimeLeft(newDuration);
-        localStorage.setItem('promodoroStart', Date.now());
+        localStorage.removeItem('pomodoroStart'); // Clear saved start time when skipping
         clearInterval(intervalRef.current);
         setIsActive(isAutomatic);
     };
@@ -84,15 +84,11 @@ const Timer = () => {
     }, [isActive, timeLeft]);
 
     useEffect(() => {
-        const savedStart = localStorage.getItem('pomodoroStart');
-        if(savedStart) {
-            const elapsed = Math.floor((Date.now() - Number(savedStart)) / 1000);
-            const duration = getStateDuration(currentState);
-            const remaining = duration - elapsed;
-            setTimeLeft(remaining > 0 ? remaining : 0);
-        } else {
-            localStorage.setItem('pomodoroStart', Date.now());
-        }
+        // Initialize timer with fresh state on component mount
+        const duration = getStateDuration(currentState);
+        setTimeLeft(duration);
+        // Clear any old localStorage data to start fresh
+        localStorage.removeItem('pomodoroStart');
     }, [])
 
     useEffect(()=> {
@@ -117,11 +113,14 @@ const Timer = () => {
 
    const toggleTimer = () => {
         if (!isActive) {
-            localStorage.setItem('pomodoroStart', Date.now() - (getStateDuration(currentState) - timeLeft) * 1000);
-            start(); // sound??
+            // When starting the timer, set the start time accounting for time already elapsed
+            const elapsed = getStateDuration(currentState) - timeLeft;
+            localStorage.setItem('pomodoroStart', Date.now() - elapsed * 1000);
+            start(); // sound
+        } else {
+            pause(); // sound
         }
         setIsActive(!isActive);
-        pause();
     };
 
     const formatTime = (seconds) => {
@@ -167,7 +166,7 @@ const Timer = () => {
                 <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-all duration-300"></div>
             )}            <div className={`backdrop-blur-md border border-white/20 rounded-2xl shadow-lg flex flex-col items-center transition-all duration-300 ${isExpanded
                 ? 'fixed inset-4 z-50 justify-start bg-white/5 backdrop-blur-lg border-white/25 shadow-xl p-4 sm:p-6 max-h-screen overflow-y-auto'
-                : 'w-1/2 min-h-[400px] justify-center bg-white/10 p-6 w-full'
+                : 'min-h-[400px] justify-center bg-white/10 p-6 w-full'
                 }`}>            
                 <div className="flex justify-between items-center w-full mb-6">
                     <h2 className={`font-inter-bold ${isExpanded ? 'text-xl text-white' : 'text-xl'}`}>Timer</h2>
