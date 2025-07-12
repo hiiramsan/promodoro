@@ -12,6 +12,7 @@ export default function ProjectsSlider() {
     const [showAddProject, setShowAddProject] = useState(false);
     const [newProjectName, setNewProjectName] = useState('');
     const [newProjectColor, setNewProjectColor] = useState('#3b82f6');
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
     const predefinedColors = [
         'blue', 'red', 'yellow', 'orange', 'purple',
@@ -27,7 +28,7 @@ export default function ProjectsSlider() {
                     return;
                 }
 
-                const response = await axios.get('http://localhost:3000/api/projects', {
+                const response = await axios.get(`${apiBase}/api/projects`, {
                     headers: {
                         Authorization: `Bearer ${token}`
                     }
@@ -90,7 +91,7 @@ export default function ProjectsSlider() {
         if (!token) return;
 
         try {
-            const response = await axios.post('http://localhost:3000/api/projects', {
+            const response = await axios.post(`${apiBase}/api/projects`, {
                 name: newProjectName.trim(),
                 color: newProjectColor
             }, {

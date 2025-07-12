@@ -9,6 +9,7 @@ const ProjectsPage = () => {
 
     const { user } = useAuth();
     const [isLoading, setIsLoading ] = useState(true);
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
     // Set document title
     useEffect(()=> {
@@ -28,7 +29,7 @@ const ProjectsPage = () => {
                 return;
             }
 
-            const response = await axios.get("http://localhost:3000/api/projects", {
+            const response = await axios.get(`${apiBase}/api/projects`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }

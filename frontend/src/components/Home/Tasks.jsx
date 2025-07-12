@@ -15,6 +15,7 @@ const Tasks = () => {
     const [loading, setLoading] = useState(true);
     const [tasksCompleted, setTasksCompleted] = useState(false);
     const { pop } = useSounds();
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
     useEffect(() => {
         const fetchTasksAndProjects = async () => {
@@ -27,10 +28,10 @@ const Tasks = () => {
 
                 // Fetch tasks and projects in parallel
                 const [tasksResponse, projectsResponse] = await Promise.all([
-                    axios.get('http://localhost:3000/api/tasks', {
+                    axios.get(`${apiBase}/api/tasks`, {
                         headers: { Authorization: `Bearer ${token}` }
                     }),
-                    axios.get('http://localhost:3000/api/projects', {
+                    axios.get(`${apiBase}/api/projects`, {
                         headers: { Authorization: `Bearer ${token}` }
                     })
                 ]);
@@ -92,7 +93,7 @@ const Tasks = () => {
         );
 
         try {
-            await axios.put(`http://localhost:3000/api/tasks/${id}`, {}, {
+            await axios.put(`${apiBase}/api/tasks/${id}`, {}, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
@@ -126,7 +127,7 @@ const Tasks = () => {
         setShowAddTask(false);
 
         try {
-            const response = await axios.post('http://localhost:3000/api/tasks', {
+            const response = await axios.post(`${apiBase}/api/tasks`, {
                 title: newTaskName.trim(),
                 projectId: selectedProject || null
             }, {
@@ -177,7 +178,7 @@ const Tasks = () => {
         pop();
 
         try {
-            await axios.delete(`http://localhost:3000/api/tasks/completed`, {
+            await axios.delete(`${apiBase}/api/tasks/completed`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }

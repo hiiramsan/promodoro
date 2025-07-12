@@ -8,6 +8,7 @@ const Projects = () => {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [numProjects, setNumProjects] = useState(0);
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
     useEffect(() => {
         const fetchProjects = async () => {
@@ -19,7 +20,7 @@ const Projects = () => {
                     return;
                 }
 
-                const response = await axios.get('http://localhost:3000/api/projects', {
+                const response = await axios.get(`${apiBase}/api/projects`, {
                     headers: {
                         Authorization: `Bearer ${token}`
                     }
@@ -40,6 +41,7 @@ const Projects = () => {
                 setLoading(false);
             }
         }
+        fetchProjects();
     }, [user]); 
 
     useEffect(() => {
@@ -47,12 +49,12 @@ const Projects = () => {
             try {
                 
                 const token = localStorage.getItem('token');
-                if(token && !user) {
+                if(!token || !user) {
                     setLoading(false);
                     return;
                 }
 
-                const response = await axios.get('http://localhost:3000/api/projects/num', {
+                const response = await axios.get(`${apiBase}/api/projects/num`, {
                     headers: {Authorization: `Bearer ${token}`}
                 });
 

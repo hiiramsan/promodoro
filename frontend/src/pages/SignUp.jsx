@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 const SignUp = () => {
 
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         email: "",
