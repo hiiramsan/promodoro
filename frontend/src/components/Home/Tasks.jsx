@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from '../../context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { useSounds } from '../../assets/context/SoundProvider';
+import colorMap, { getColorMapping } from '../../utils/colorMap';
 
 const Tasks = () => {
     const { user } = useAuth();
@@ -34,7 +35,6 @@ const Tasks = () => {
                     })
                 ]);
 
-                console.log(tasksResponse.data);
                 const transformedTasks = tasksResponse.data.map(task => ({
                     id: task._id,
                     name: task.title,
@@ -149,8 +149,8 @@ const Tasks = () => {
         }
     };
 
-    useEffect(()=> {
-        if(showAddTask) {
+    useEffect(() => {
+        if (showAddTask) {
             window.addEventListener("keydown", handleKeyDown);
             return () => {
                 window.removeEventListener("keydown", handleKeyDown);
@@ -232,12 +232,21 @@ const Tasks = () => {
                             <div className="flex space-x-2 flex-shrink-0 ml-4">
                                 {task.project && (
                                     <span
-                                        className={`px-3 py-1 rounded-full text-xs font-medium bg-${task.project.color}-700/30 border border-${task.project.color}-700/40 text-${task.project.color}-200`}
+                                        className="px-3 py-1 rounded-full text-xs font-medium shadow-sm"
+                                        style={{
+                                            backgroundColor: getColorMapping(task.project.color).backgroundColor,
+                                            borderColor: getColorMapping(task.project.color).borderColor,
+                                            color: getColorMapping(task.project.color).color,
+                                            border: `1px solid ${getColorMapping(task.project.color).borderColor}`,
+                                        }}
                                     >
                                         {task.project.name}
                                     </span>
                                 )}
                             </div>
+
+
+
                         </li>
                     ))}
                     {tasks.length === 0 && (
@@ -275,20 +284,19 @@ const Tasks = () => {
                                 autoFocus
                             />
                         </div>
-                        
+
                         <div>
-                            <div className="mb-2">
+                            <div className="mb-2 m-3">
                                 <span className="text-white/70 text-sm font-medium">Project (optional)</span>
                             </div>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2 ml-3">
                                 <button
                                     type="button"
                                     onClick={() => setSelectedProject('')}
-                                    className={`px-3 py-1.5 rounded-full text-sm font-medium border ${
-                                        selectedProject === ''
-                                            ? 'bg-white/30 border-white/50 text-white'
-                                            : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10 hover:text-white/80'
-                                    }`}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-medium border cursor-pointer ${selectedProject === ''
+                                        ? 'bg-white/30 border-white/50 text-white'
+                                        : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10 hover:text-white/80'
+                                        }`}
                                 >
                                     No Project
                                 </button>
@@ -297,18 +305,17 @@ const Tasks = () => {
                                         key={project._id}
                                         type="button"
                                         onClick={() => setSelectedProject(project._id)}
-                                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 border ${
-                                            selectedProject === project._id
-                                                ? `bg-${project.color}-700/40 border-${project.color}-600/60 text-${project.color}-200`
-                                                : `bg-${project.color}-700/20 border-${project.color}-700/30 text-${project.color}-300/70 hover:bg-${project.color}-700/30 hover:text-${project.color}-200`
-                                        }`}
+                                        className={`px-3 py-1.5 rounded-full text-sm font-medium border cursor-pointer transition-all duration-200 shadow-sm ${selectedProject === project._id
+                                            ? 'bg-white/30 border-white/50 text-white'
+                                            : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10 hover:text-white/80'
+                                            }`}
                                     >
                                         {project.name}
                                     </button>
                                 ))}
                             </div>
                         </div>
-                        
+
                         <div className="flex justify-end items-center space-x-4 pt-2">
                             <button
                                 type="button"
