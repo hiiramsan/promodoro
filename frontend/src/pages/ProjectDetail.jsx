@@ -14,6 +14,7 @@ export default function ProjectDetail() {
     const [deleting, setDeleting] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [error, setError] = useState(null);
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
     useEffect(() => {
         const fetchProject = async () => {
@@ -24,7 +25,7 @@ export default function ProjectDetail() {
                     return;
                 }
 
-                const response = await axios.get(`http://localhost:3000/api/projects/${id}`, {
+                const response = await axios.get(`${apiBase}/api/projects/${id}`, {
                     headers: {
                         Authorization: `Bearer ${token}`
                     }
@@ -50,7 +51,7 @@ export default function ProjectDetail() {
         setDeleting(true);
         try {
             const token = localStorage.getItem('token');
-            await axios.delete(`http://localhost:3000/api/projects/${id}`, {
+            await axios.delete(`${apiBase}/api/projects/${id}`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
