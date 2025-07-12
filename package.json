@@ -1,6 +1,24 @@
 {
+  "name": "promodoro",
+  "version": "1.0.0",
+  "description": "A Pomodoro timer application with project management",
+  "main": "backend/app.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "start": "npm run start --prefix backend",
+    "build": "npm run build --prefix frontend",
+    "install-all": "npm install && npm install --prefix backend && npm install --prefix frontend",
+    "heroku-postbuild": "npm run install-all && npm run build"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "dependencies": {
     "use-sound": "^5.0.0",
     "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }

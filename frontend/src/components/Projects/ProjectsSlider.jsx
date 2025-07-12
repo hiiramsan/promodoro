@@ -16,7 +16,6 @@ export default function ProjectsSlider() {
     const predefinedColors = [
         'blue', 'red', 'yellow', 'orange', 'purple',
         'pink', 'cyan',
-
     ];
 
     useEffect(() => {

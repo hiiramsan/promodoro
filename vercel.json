@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "name": "promodoro",
+  "builds": [
+    {
+      "src": "backend/app.js",
+      "use": "@vercel/node",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
+    },
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "backend/app.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "frontend/dist/$1"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "DB_URI": "@db_uri",
+    "JWT_SECRET": "@jwt_secret",
+    "CORS_ORIGIN": "@cors_origin"
+  },
+  "build": {
+    "env": {
+      "VITE_API_URL": "https://your-project-name.vercel.app/api"
+    }
+  }
+}
