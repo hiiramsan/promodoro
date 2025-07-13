@@ -10,6 +10,9 @@ export const createApiUrl = (endpoint) => {
 
 // Common API endpoints
 export const API_ENDPOINTS = {
+  // Server
+  PING: createApiUrl('ping'),
+  
   // Auth
   AUTH_ME: createApiUrl('auth/me'),
   AUTH_LOGIN: createApiUrl('auth/login'),

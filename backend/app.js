@@ -25,8 +25,8 @@ const connectDB = async () => {
 
 // Middleware
 const allowedOrigins = [
-  'http://localhost:5173',              // local dev frontend
-  'https://promodoro-rho.vercel.app'   // your deployed frontend URL
+  'http://localhost:5173',    
+  'https://promodoro-rho.vercel.app'
 ];
 
 app.use(cors({
@@ -49,6 +49,11 @@ app.use('/api/messages', testRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/tasks', tasksRouter)
 app.use('/api/projects', projectRouter)
+
+// ping route
+app.get('/api/ping', (req, res) => {
+  res.status(200).send('pong');
+});
 
 app.get('/', (req, res) => {
   res.json({ 

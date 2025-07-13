@@ -11,11 +11,13 @@ import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import ProjectsPage from './pages/ProjectsPage.jsx'
 import ProjectDetail from './pages/ProjectDetail.jsx'
 import { SoundProvider } from './assets/context/SoundProvider.jsx'
+import { useServerReady } from './hooks/useServerReady.js'
+import ServerLoadingScreen from './components/ServerLoadingScreen.jsx'
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
-  if (loading) {
+  if (loading) {    
     return (
       <div className="min-h-screen flex items-center justify-center text-white">
         <div className="text-center">
@@ -97,12 +99,25 @@ const router = createBrowserRouter([
   }
 ])
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
+// App wrapper component that handles server readiness
+const AppWithServerCheck = () => {
+  const { isServerReady, error, retryCount } = useServerReady();
+
+  if (!isServerReady) {
+    return <ServerLoadingScreen retryCount={retryCount} error={error} />;
+  }
+
+  return (
     <SoundProvider>
       <AuthProvider>
         <RouterProvider router={router} />
       </AuthProvider>
     </SoundProvider>
+  );
+};
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <AppWithServerCheck />
   </StrictMode>,
 )
