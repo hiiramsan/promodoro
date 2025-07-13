@@ -1,53 +1,81 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import Silk from './Silk';
 
 const ServerLoadingScreen = ({ retryCount, error }) => {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center text-white">
-      <div className="text-center max-w-md px-6">
-        {/* Logo or App Name */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Promodoro</h1>
-          <p className="text-blue-200">Getting everything ready...</p>
-        </div>
+  const [currentMessage, setCurrentMessage] = useState(0);
+  const [displayText, setDisplayText] = useState('');
+  const [isTyping, setIsTyping] = useState(true);
 
-        {/* Loading Animation */}
-        <div className="mb-6">
-          <div className="relative">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-400 border-t-transparent mx-auto"></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-8 h-8 bg-blue-400 rounded-full animate-pulse"></div>
-            </div>
+  const messages = [
+    "Our backend just took a nap — waking it up...",
+    "Brewing some fresh server magic...",
+    "Dusting off the database...",
+    "Warming up the productivity engines...",
+    "Almost there! Just a few more seconds...",
+    "The server is doing its morning stretches...",
+    "Loading your personalized workspace...",
+    "Synchronizing with the cloud..."
+  ];
+
+  useEffect(() => {
+    const currentMsg = messages[currentMessage];
+    let charIndex = 0;
+    setDisplayText('');
+    setIsTyping(true);
+
+    const typingInterval = setInterval(() => {
+      if (charIndex < currentMsg.length) {
+        setDisplayText(currentMsg.slice(0, charIndex + 1));
+        charIndex++;
+      } else {
+        clearInterval(typingInterval);
+        setIsTyping(false);
+        
+        // Change message after 5 seconds
+        setTimeout(() => {
+          setCurrentMessage((prev) => (prev + 1) % messages.length);
+        }, 5000);
+      }
+    }, 50);
+
+    return () => clearInterval(typingInterval);
+  }, [currentMessage]);
+
+  return (
+    <div className="min-h-screen relative flex items-center justify-center">
+      {/* Silk Background */}
+      <div className="absolute inset-0">
+        <Silk />
+      </div>
+      
+      {/* Content */}
+      <div className="relative z-10 text-center max-w-2xl px-6">
+        {/* App Name */}
+        <h1 className="text-5xl font-bold text-white mb-12 drop-shadow-lg">
+          Promodoro
+        </h1>
+        
+        {/* Loading Bar */}
+        <div className="mb-8">
+          <div className="w-80 h-2 bg-white/20 rounded-full mx-auto overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full animate-pulse"></div>
           </div>
         </div>
 
-        {/* Status Message */}
+        {/* Typing Message */}
         <div className="mb-4">
-          <p className="text-lg text-blue-100">
-            {error ? 'Connecting to server...' : 'Initializing application...'}
+          <p className="text-xl text-white/90 font-medium h-8 drop-shadow-md">
+            {displayText}
+            {isTyping && <span className="animate-pulse">|</span>}
           </p>
-          {retryCount > 0 && (
-            <p className="text-sm text-blue-300 mt-2">
-              Attempt {retryCount + 1} - The server might be starting up
-            </p>
-          )}
         </div>
 
-        {/* Progress Dots */}
-        <div className="flex justify-center space-x-2">
-          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
-          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-        </div>
-
-        {/* Additional Info */}
-        <div className="mt-8 text-sm text-blue-300">
-          <p>This may take a few moments if the server is starting up.</p>
-          {retryCount > 5 && (
-            <p className="mt-2 text-yellow-300">
-              Taking longer than expected... Please wait a moment.
-            </p>
-          )}
-        </div>
+        {/* Retry Info (only show if retrying) */}
+        {retryCount > 0 && (
+          <p className="text-sm text-white/70 mt-4">
+            Attempt {retryCount + 1}
+          </p>
+        )}
       </div>
     </div>
   );
