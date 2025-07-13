@@ -57,8 +57,8 @@ const ServerLoadingScreen = ({ retryCount, error }) => {
         
         {/* Loading Bar */}
         <div className="mb-8">
-          <div className="w-80 h-2 bg-white/20 rounded-full mx-auto overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full animate-pulse"></div>
+          <div className="w-80 h-2 bg-gray-600/40 rounded-full mx-auto overflow-hidden">
+            <div className="h-full bg-white rounded-full animate-pulse"></div>
           </div>
         </div>
 
