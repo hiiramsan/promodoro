@@ -12,23 +12,25 @@ const Timer = () => {
     };
 
     const [currentState, setCurrentState] = useState(TIMER_STATES.FOCUS);
-    const [timeLeft, setTimeLeft] = useState(25*60);
+    const [timeLeft, setTimeLeft] = useState(25 * 60);
     const [isActive, setIsActive] = useState(false);
     const [focusSessions, setFocusSessions] = useState(0);
     const [sessionsUntilLongBreak] = useState(4);
     const [isExpanded, setIsExpanded] = useState(false);
     const intervalRef = useRef(null);
+    const startTimeRef = useRef(null);
+    const animationFrameRef = useRef(null);
 
     const getStateDuration = (state) => {
         switch (state) {
             case TIMER_STATES.FOCUS:
-                return 25*60;
+                return 25 * 60;
             case TIMER_STATES.SHORT_BREAK:
-                return 5*60;
+                return 5 * 60;
             case TIMER_STATES.LONG_BREAK:
-                return 15*60;
+                return 15 * 60;
             default:
-                return 25*60;
+                return 25 * 60;
         }
     };
 
@@ -51,10 +53,17 @@ const Timer = () => {
         setIsActive(false);
         setCurrentState(newState);
         setTimeLeft(getStateDuration(newState));
-        localStorage.removeItem('pomodoroStart'); // Clear saved start time when switching states
-        clearInterval(intervalRef.current);
-    };   
-    
+        localStorage.removeItem('pomodoroStart');
+        localStorage.removeItem('pomodoroTimeLeft');
+        startTimeRef.current = null;
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+        }
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+        }
+    };
+
     const skipToNext = (isAutomatic = false) => {
         const nextState = getNextState();
         if (currentState === TIMER_STATES.FOCUS) {
@@ -64,61 +73,104 @@ const Timer = () => {
         setCurrentState(nextState);
         const newDuration = getStateDuration(nextState);
         setTimeLeft(newDuration);
-        localStorage.removeItem('pomodoroStart'); // Clear saved start time when skipping
-        clearInterval(intervalRef.current);
-        setIsActive(isAutomatic);
-    };
-    
-    useEffect(() => {
-        if (isActive && timeLeft > 0) {
-            intervalRef.current = setInterval(() => {
-                setTimeLeft(time => time - 1);
-            }, 1000);
-        } else if (timeLeft === 0 && isActive) {
-            skipToNext(true);
-        } else {
+        localStorage.removeItem('pomodoroStart');
+        localStorage.removeItem('pomodoroTimeLeft');
+        startTimeRef.current = null;
+        if (intervalRef.current) {
             clearInterval(intervalRef.current);
         }
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+        }
+        setIsActive(isAutomatic);
+    };
 
-        return () => clearInterval(intervalRef.current);
-    }, [isActive, timeLeft]);
+    // More accurate timer using requestAnimationFrame and timestamps
+    const updateTimer = () => {
+        if (!startTimeRef.current) return;
+
+        const now = Date.now();
+        const elapsed = Math.floor((now - startTimeRef.current) / 1000);
+        const duration = getStateDuration(currentState);
+        const newTimeLeft = Math.max(0, duration - elapsed);
+
+        setTimeLeft(newTimeLeft);
+
+        if (newTimeLeft === 0) {
+            skipToNext(true);
+        } else if (isActive) {
+            animationFrameRef.current = requestAnimationFrame(updateTimer);
+        }
+    };
 
     useEffect(() => {
-        // Initialize timer with fresh state on component mount
-        const duration = getStateDuration(currentState);
-        setTimeLeft(duration);
-        // Clear any old localStorage data to start fresh
-        localStorage.removeItem('pomodoroStart');
-    }, [])
-
-    useEffect(()=> {
-        const minutes = Math.floor(timeLeft/60);
-        const seconds = timeLeft % 60;
-        let state = "";
-
-        switch(currentState) {
-            case "focus":
-                state = "Focus";
-                break;
-            case "short_break":
-                state = "Short Break";
-                break;
-            case "long_break":
-                state = "Long Break";
-                break;
+        if (isActive && timeLeft > 0) {
+            if (!startTimeRef.current) {
+                const duration = getStateDuration(currentState);
+                startTimeRef.current = Date.now() - (duration - timeLeft) * 1000;
+            }
+            animationFrameRef.current = requestAnimationFrame(updateTimer);
+        } else if (!isActive) {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
         }
 
-        document.title = `${state} - ${minutes}:${seconds.toString().padStart(2,'0')}`
-    }, [timeLeft])
+        return () => {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+        };
+    }, [isActive, timeLeft]);
 
-   const toggleTimer = () => {
-        if (!isActive) {
-            // When starting the timer, set the start time accounting for time already elapsed
-            const elapsed = getStateDuration(currentState) - timeLeft;
-            localStorage.setItem('pomodoroStart', Date.now() - elapsed * 1000);
-            start(); // sound
+    // Persist timer state
+    useEffect(() => {
+        if (isActive && startTimeRef.current) {
+            localStorage.setItem('pomodoroStart', startTimeRef.current.toString());
+            localStorage.setItem('pomodoroTimeLeft', timeLeft.toString());
+            localStorage.setItem('pomodoroState', currentState);
+        }
+    }, [isActive, timeLeft, currentState]);
+
+    // Restore timer state on page load
+    useEffect(() => {
+        const savedStart = localStorage.getItem('pomodoroStart');
+        const savedTimeLeft = localStorage.getItem('pomodoroTimeLeft');
+        const savedState = localStorage.getItem('pomodoroState');
+
+        if (savedStart && savedTimeLeft && savedState) {
+            const now = Date.now();
+            const savedStartTime = parseInt(savedStart);
+            const elapsed = Math.floor((now - savedStartTime) / 1000);
+            const duration = getStateDuration(savedState);
+            const calculatedTimeLeft = Math.max(0, duration - elapsed);
+
+            if (calculatedTimeLeft > 0) {
+                setCurrentState(savedState);
+                setTimeLeft(calculatedTimeLeft);
+                startTimeRef.current = savedStartTime;
+                // Don't auto-resume, let user decide
+            } else {
+                // Timer expired while away, clean up
+                localStorage.removeItem('pomodoroStart');
+                localStorage.removeItem('pomodoroTimeLeft');
+                localStorage.removeItem('pomodoroState');
+            }
         } else {
-            pause(); // sound
+            const duration = getStateDuration(currentState);
+            setTimeLeft(duration);
+        }
+    }, []);
+
+    const toggleTimer = () => {
+        if (!isActive) {
+            if (!startTimeRef.current) {
+                const duration = getStateDuration(currentState);
+                startTimeRef.current = Date.now() - (duration - timeLeft) * 1000;
+            }
+            start();
+        } else {
+            pause();
         }
         setIsActive(!isActive);
     };
@@ -158,8 +210,29 @@ const Timer = () => {
             default:
                 return 'Focus';
         }
-    }; 
-    
+    };
+
+    // Update document title with timer state
+    useEffect(() => {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        let state = "";
+
+        switch (currentState) {
+            case "focus":
+                state = "Focus";
+                break;
+            case "short_break":
+                state = "Short Break";
+                break;
+            case "long_break":
+                state = "Long Break";
+                break;
+        }
+
+        document.title = `${state} - ${minutes}:${seconds.toString().padStart(2, '0')}`
+    }, [timeLeft, currentState]);
+
     return (
         <>
             {isExpanded && (
@@ -167,7 +240,7 @@ const Timer = () => {
             )}            <div className={`backdrop-blur-md border border-white/20 rounded-2xl shadow-lg flex flex-col items-center transition-all duration-300 ${isExpanded
                 ? 'fixed inset-4 z-50 justify-start bg-white/5 backdrop-blur-lg border-white/25 shadow-xl p-4 sm:p-6 max-h-screen overflow-y-auto'
                 : 'min-h-[400px] justify-center bg-white/10 p-6 w-full'
-                }`}>            
+                }`}>
                 <div className="flex justify-between items-center w-full mb-6">
                     <h2 className={`font-inter-bold ${isExpanded ? 'text-xl text-white' : 'text-xl'}`}>Timer</h2>
                     <button
@@ -219,16 +292,17 @@ const Timer = () => {
                         />
                     </svg>
 
-                    <div className="absolute inset-0 flex items-center justify-center">                    <div className="text-center">
-                        <div className={`font-mono font-inter mb-1 ${isExpanded ? 'text-5xl sm:text-6xl lg:text-7xl' : 'text-4xl'}`}>
-                            {formatTime(timeLeft)}
-                        </div>
-                        <div className={`text-white/60 ${isExpanded ? 'text-base sm:text-lg' : 'text-sm'}`}>
-                            {currentState === TIMER_STATES.FOCUS ? 'Stay focused' : 'Take a break'}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center">
+                            <div className={`font-mono font-inter mb-1 ${isExpanded ? 'text-5xl sm:text-6xl lg:text-7xl' : 'text-4xl'}`}>
+                                {formatTime(timeLeft)}
+                            </div>
+                            <div className={`text-white/60 ${isExpanded ? 'text-base sm:text-lg' : 'text-sm'}`}>
+                                {currentState === TIMER_STATES.FOCUS ? 'Stay focused' : 'Take a break'}
+                            </div>
                         </div>
                     </div>
-                    </div>
-                </div>            
+                </div>
                 <div className="relative flex justify-center mb-4">
                     <button
                         onClick={toggleTimer}
@@ -253,7 +327,6 @@ const Timer = () => {
                     </button>
                 </div>
 
-                {/* Session progress indicator */}
                 <div className="flex items-center space-x-2">
                     <span className="text-sm text-white/60">Until long break:</span>
                     <div className="flex space-x-1">
@@ -271,7 +344,7 @@ const Timer = () => {
                         {sessionsUntilLongBreak - (focusSessions % sessionsUntilLongBreak)} left
                     </span>
                 </div>
-                
+
             </div>
         </>
     );

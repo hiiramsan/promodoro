@@ -10,13 +10,6 @@ const Navigation = memo(() => (
             <span className="text-xl font-inter">promodoro</span>
         </div>
 
-        {/* <div className="hidden md:flex items-center space-x-8 absolute left-1/2 transform -translate-x-1/2">
-            <a href="#" className="font-inter hover:text-blue-400 transition-colors no-underline">Home</a>
-            <a href="#" className="font-inter hover:text-blue-400 transition-colors no-underline">Services</a>
-            <a href="#" className="font-inter hover:text-blue-400 transition-colors no-underline">Market</a>
-            <a href="#" className="font-inter hover:text-blue-400 transition-colors no-underline">FAQs</a>
-        </div> */}
-
         <div className="flex items-center space-x-3">
             <Link to="/home" className="px-3 py-1.5 text-sm border border-gray-600 rounded-full hover:bg-gray-800 transition-colors font-inter cursor-pointer">
                 Start
@@ -105,7 +98,16 @@ const HeroSection = memo(() => (
                     </div>
                 </div>
             </div>
-        </div>    </>
+            <div className="flex flex-col m-0">
+                <p className='font-inter'>
+                    Built with hate by 
+                        <a href='https://hiramsanchez.vercel.app' target='_blank' className='underline font-inter'>
+                             @hiiramsan
+                        </a>
+                    </p>
+            </div>
+        </div>    
+        </>
 ));
 
 const LandingPage = () => {

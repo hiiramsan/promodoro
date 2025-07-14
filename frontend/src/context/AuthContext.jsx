@@ -8,11 +8,9 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     
-    // check existing user
     useEffect(() => {
         const checkAuth = async () => {
             try {                
-                // get token in localstorage
                 const token = localStorage.getItem('token');
 
                 if (token) {
@@ -22,7 +20,6 @@ export function AuthProvider({ children }) {
                         }
                     });
                     setUser(res.data);
-                    console.log("user set")
                 }
             } catch (error) {
                 localStorage.removeItem('token')
