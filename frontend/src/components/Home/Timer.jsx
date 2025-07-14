@@ -20,6 +20,7 @@ const Timer = () => {
     const intervalRef = useRef(null);
     const startTimeRef = useRef(null);
     const animationFrameRef = useRef(null);
+    const backgroundIntervalRef = useRef(null);
 
     const getStateDuration = (state) => {
         switch (state) {
@@ -55,12 +56,18 @@ const Timer = () => {
         setTimeLeft(getStateDuration(newState));
         localStorage.removeItem('pomodoroStart');
         localStorage.removeItem('pomodoroTimeLeft');
+        localStorage.removeItem('pomodoroState');
         startTimeRef.current = null;
+        
+        // Clear all timers
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
         }
         if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
+        }
+        if (backgroundIntervalRef.current) {
+            clearInterval(backgroundIntervalRef.current);
         }
     };
 
@@ -75,44 +82,134 @@ const Timer = () => {
         setTimeLeft(newDuration);
         localStorage.removeItem('pomodoroStart');
         localStorage.removeItem('pomodoroTimeLeft');
+        localStorage.removeItem('pomodoroState');
         startTimeRef.current = null;
+        
+        // Clear all timers
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
         }
         if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
         }
+        if (backgroundIntervalRef.current) {
+            clearInterval(backgroundIntervalRef.current);
+        }
+        
         setIsActive(isAutomatic);
-    };
-
-    // More accurate timer using requestAnimationFrame and timestamps
-    const updateTimer = () => {
-        if (!startTimeRef.current) return;
-
-        const now = Date.now();
-        const elapsed = Math.floor((now - startTimeRef.current) / 1000);
-        const duration = getStateDuration(currentState);
-        const newTimeLeft = Math.max(0, duration - elapsed);
-
-        setTimeLeft(newTimeLeft);
-
-        if (newTimeLeft === 0) {
-            skipToNext(true);
-        } else if (isActive) {
-            animationFrameRef.current = requestAnimationFrame(updateTimer);
+        
+        // If automatically moving to next state, start the timer
+        if (isAutomatic) {
+            const duration = getStateDuration(nextState);
+            startTimeRef.current = Date.now();
+            // Set up both timers immediately
+            setupTimers();
         }
     };
 
+    // Calculate time left based on actual elapsed time
+    const calculateTimeLeft = () => {
+        if (!startTimeRef.current) return getStateDuration(currentState);
+        
+        const now = Date.now();
+        const elapsed = Math.floor((now - startTimeRef.current) / 1000);
+        const duration = getStateDuration(currentState);
+        return Math.max(0, duration - elapsed);
+    };
+
+    // Setup both animation frame and background interval timers
+    const setupTimers = () => {
+        // Clear existing timers
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+        }
+        if (backgroundIntervalRef.current) {
+            clearInterval(backgroundIntervalRef.current);
+        }
+
+        // Animation frame for smooth UI updates (works when tab is active)
+        const updateTimerFrame = () => {
+            if (!isActive) return;
+            
+            const newTimeLeft = calculateTimeLeft();
+            setTimeLeft(newTimeLeft);
+
+            if (newTimeLeft === 0) {
+                skipToNext(true);
+                return;
+            }
+
+            animationFrameRef.current = requestAnimationFrame(updateTimerFrame);
+        };
+
+        // Background interval for when tab is inactive (every 200ms for better precision)
+        const updateTimerInterval = () => {
+            if (!isActive) return;
+            
+            const newTimeLeft = calculateTimeLeft();
+            setTimeLeft(newTimeLeft);
+
+            if (newTimeLeft === 0) {
+                skipToNext(true);
+                return;
+            }
+        };
+
+        // Start both timers
+        animationFrameRef.current = requestAnimationFrame(updateTimerFrame);
+        backgroundIntervalRef.current = setInterval(updateTimerInterval, 200);
+    };
+
+    // Handle visibility change to ensure timer works in background
     useEffect(() => {
-        if (isActive && timeLeft > 0) {
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                // Tab became inactive - rely on background interval
+                if (animationFrameRef.current) {
+                    cancelAnimationFrame(animationFrameRef.current);
+                }
+            } else {
+                // Tab became active - restart animation frame
+                if (isActive) {
+                    const updateTimerFrame = () => {
+                        if (!isActive) return;
+                        
+                        const newTimeLeft = calculateTimeLeft();
+                        setTimeLeft(newTimeLeft);
+
+                        if (newTimeLeft === 0) {
+                            skipToNext(true);
+                            return;
+                        }
+
+                        animationFrameRef.current = requestAnimationFrame(updateTimerFrame);
+                    };
+                    animationFrameRef.current = requestAnimationFrame(updateTimerFrame);
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [isActive]);
+
+    // Main timer effect
+    useEffect(() => {
+        if (isActive) {
             if (!startTimeRef.current) {
                 const duration = getStateDuration(currentState);
                 startTimeRef.current = Date.now() - (duration - timeLeft) * 1000;
             }
-            animationFrameRef.current = requestAnimationFrame(updateTimer);
-        } else if (!isActive) {
+            setupTimers();
+        } else {
+            // Clear all timers when not active
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
+            }
+            if (backgroundIntervalRef.current) {
+                clearInterval(backgroundIntervalRef.current);
             }
         }
 
@@ -120,46 +217,73 @@ const Timer = () => {
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
             }
+            if (backgroundIntervalRef.current) {
+                clearInterval(backgroundIntervalRef.current);
+            }
         };
-    }, [isActive, timeLeft]);
+    }, [isActive]);
 
-    // Persist timer state
+    // Persist timer state more frequently
     useEffect(() => {
         if (isActive && startTimeRef.current) {
             localStorage.setItem('pomodoroStart', startTimeRef.current.toString());
-            localStorage.setItem('pomodoroTimeLeft', timeLeft.toString());
             localStorage.setItem('pomodoroState', currentState);
-        }
-    }, [isActive, timeLeft, currentState]);
-
-    // Restore timer state on page load
-    useEffect(() => {
-        const savedStart = localStorage.getItem('pomodoroStart');
-        const savedTimeLeft = localStorage.getItem('pomodoroTimeLeft');
-        const savedState = localStorage.getItem('pomodoroState');
-
-        if (savedStart && savedTimeLeft && savedState) {
-            const now = Date.now();
-            const savedStartTime = parseInt(savedStart);
-            const elapsed = Math.floor((now - savedStartTime) / 1000);
-            const duration = getStateDuration(savedState);
-            const calculatedTimeLeft = Math.max(0, duration - elapsed);
-
-            if (calculatedTimeLeft > 0) {
-                setCurrentState(savedState);
-                setTimeLeft(calculatedTimeLeft);
-                startTimeRef.current = savedStartTime;
-                // Don't auto-resume, let user decide
-            } else {
-                // Timer expired while away, clean up
-                localStorage.removeItem('pomodoroStart');
-                localStorage.removeItem('pomodoroTimeLeft');
-                localStorage.removeItem('pomodoroState');
-            }
+            localStorage.setItem('pomodoroActive', 'true');
         } else {
-            const duration = getStateDuration(currentState);
-            setTimeLeft(duration);
+            localStorage.removeItem('pomodoroActive');
         }
+    }, [isActive, currentState]);
+
+    // Restore timer state on page load and handle page focus
+    useEffect(() => {
+        const restoreTimerState = () => {
+            const savedStart = localStorage.getItem('pomodoroStart');
+            const savedState = localStorage.getItem('pomodoroState');
+            const wasActive = localStorage.getItem('pomodoroActive') === 'true';
+
+            if (savedStart && savedState && wasActive) {
+                const now = Date.now();
+                const savedStartTime = parseInt(savedStart);
+                const elapsed = Math.floor((now - savedStartTime) / 1000);
+                const duration = getStateDuration(savedState);
+                const calculatedTimeLeft = Math.max(0, duration - elapsed);
+
+                if (calculatedTimeLeft > 0) {
+                    setCurrentState(savedState);
+                    setTimeLeft(calculatedTimeLeft);
+                    startTimeRef.current = savedStartTime;
+                    setIsActive(true); // Resume the timer
+                } else {
+                    // Timer expired while away
+                    localStorage.removeItem('pomodoroStart');
+                    localStorage.removeItem('pomodoroState');
+                    localStorage.removeItem('pomodoroActive');
+                    
+                    // Determine what state we should be in and play sound
+                    const sessionsPassedWhileAway = Math.floor(elapsed / (25 * 60)); // Rough estimate
+                    ring(); // Play completion sound
+                    
+                    // Reset to default state
+                    setCurrentState(TIMER_STATES.FOCUS);
+                    setTimeLeft(getStateDuration(TIMER_STATES.FOCUS));
+                }
+            } else {
+                const duration = getStateDuration(currentState);
+                setTimeLeft(duration);
+            }
+        };
+
+        restoreTimerState();
+
+        // Also restore state when page regains focus
+        const handleFocus = () => {
+            restoreTimerState();
+        };
+
+        window.addEventListener('focus', handleFocus);
+        return () => {
+            window.removeEventListener('focus', handleFocus);
+        };
     }, []);
 
     const toggleTimer = () => {
