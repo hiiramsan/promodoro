@@ -96,15 +96,6 @@ CORS_ORIGIN=http://localhost:5173
 VITE_API_URL=http://localhost:3000/api
 ```
 
-## 🌐 Deployment
-
-Detailed deployment instructions are available in [DEPLOYMENT.md](DEPLOYMENT.md).
-
-### Quick Deploy Options:
-- **Vercel**: Full-stack deployment with serverless functions
-- **Netlify + Heroku**: Static frontend + backend hosting
-- **Railway**: Modern deployment platform
-
 ## 📱 Usage
 
 1. **Sign up** for a new account or **login** to existing one
@@ -114,29 +105,8 @@ Detailed deployment instructions are available in [DEPLOYMENT.md](DEPLOYMENT.md)
 5. **Take breaks** between sessions
 6. **Track your progress** and completed tasks
 
-## 🎨 Screenshots
-
-*Add screenshots of your application here*
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
-
-- Inspired by the Pomodoro Technique® by Francesco Cirillo
-- Sound effects from [source]
-- Icons from React Icons
-
-## 📧 Contact
-
-Your Name - your.email@example.com
-Project Link: https://github.com/yourusername/promodoro
