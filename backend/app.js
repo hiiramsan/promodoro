@@ -26,7 +26,7 @@ const connectDB = async () => {
 // Middleware
 const allowedOrigins = [
   'http://localhost:5173',    
-  'https://promodoro-rho.vercel.app'
+  'https://promodoroapp.vercel.app'
 ];
 
 app.use(cors({
