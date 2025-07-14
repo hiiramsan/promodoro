@@ -33,8 +33,6 @@ const Projects = () => {
                 }));
 
                 setProjects(transformedProjects);
-                console.log(transformedProjects);
-
             } catch (error) {   
                 console.log('Error fetching projects', error)
             } finally {
@@ -59,7 +57,6 @@ const Projects = () => {
                 });
 
                 setNumProjects(response.data.count);
-                console.log(numProjects);
 
 
             } catch (error) {

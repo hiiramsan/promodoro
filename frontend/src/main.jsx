@@ -119,5 +119,5 @@ const AppWithServerCheck = () => {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AppWithServerCheck />
-  </StrictMode>,
+  </StrictMode>
 )
