@@ -77,7 +77,8 @@ export const deleteTask = async (req, res) => {
 export const deleteAllTasks = async (req, res) => {
   try {
     const completedTasks = await Task.deleteMany({
-      isCompleted: true
+      isCompleted: true,
+      user: req.user._id
     });
 
     if (completedTasks.deletedCount === 0) {
@@ -88,4 +89,37 @@ export const deleteAllTasks = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Error deleting tasks completed', error: error.message });
   }
-}
+};
+
+export const deleteCompletedTasksForProject = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    
+    // Verify project exists and belongs to user
+    const project = await Project.findOne({ 
+      _id: projectId, 
+      owner: req.user._id 
+    });
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    const completedTasks = await Task.deleteMany({
+      isCompleted: true,
+      user: req.user._id,
+      project: projectId
+    });
+
+    if (completedTasks.deletedCount === 0) {
+      return res.status(404).json({ message: "No completed tasks found for this project!" });
+    }
+
+    res.json({ 
+      message: 'Completed tasks deleted successfully', 
+      deletedCount: completedTasks.deletedCount 
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting completed tasks', error: error.message });
+  }
+};

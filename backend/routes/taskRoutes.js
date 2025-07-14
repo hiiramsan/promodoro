@@ -1,5 +1,5 @@
 import express from 'express'
-import { createTask, deleteAllTasks, deleteTask, getUserTasks, toggleTask } from '../controllers/tasksController.js';
+import { createTask, deleteAllTasks, deleteTask, getUserTasks, toggleTask, deleteCompletedTasksForProject } from '../controllers/tasksController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const tasksRouter = express.Router();
@@ -13,6 +13,9 @@ tasksRouter.route('/')
 
 tasksRouter.route('/completed')
   .delete(deleteAllTasks)
+
+tasksRouter.route('/completed/:projectId')
+  .delete(deleteCompletedTasksForProject)
 
 tasksRouter.route('/:id')
   .put(toggleTask)
