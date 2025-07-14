@@ -294,9 +294,9 @@ const Tasks = () => {
                                 <button
                                     type="button"
                                     onClick={() => setSelectedProject('')}
-                                    className={`px-3 py-1.5 rounded-full text-sm font-medium border cursor-pointer ${selectedProject === ''
-                                        ? 'bg-white/30 border-white/50 text-white'
-                                        : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10 hover:text-white/80'
+                                    className={`px-3 py-1.5 rounded-full text-sm font-medium border cursor-pointer transition-all duration-200 ${selectedProject === ''
+                                        ? 'bg-white/30 border-white/50 text-white ring-2 ring-white/50 scale-105'
+                                        : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10 hover:text-white/80 hover:scale-105'
                                         }`}
                                 >
                                     No Project
@@ -307,9 +307,15 @@ const Tasks = () => {
                                         type="button"
                                         onClick={() => setSelectedProject(project._id)}
                                         className={`px-3 py-1.5 rounded-full text-sm font-medium border cursor-pointer transition-all duration-200 shadow-sm ${selectedProject === project._id
-                                            ? 'bg-white/30 border-white/50 text-white'
-                                            : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10 hover:text-white/80'
+                                            ? 'ring-2 ring-white/50 scale-105'
+                                            : 'hover:scale-105 opacity-70 hover:opacity-100'
                                             }`}
+                                        style={{
+                                            backgroundColor: getColorMapping(project.color).backgroundColor,
+                                            borderColor: getColorMapping(project.color).borderColor,
+                                            color: getColorMapping(project.color).color,
+                                            border: `1px solid ${getColorMapping(project.color).borderColor}`,
+                                        }}
                                     >
                                         {project.name}
                                     </button>

@@ -1,4 +1,5 @@
 import Project from "../models/Project.js"
+import Task from "../models/Task.js"
 
 export const createProject = async (req, res) => {
     try {
@@ -81,6 +82,12 @@ export const deleteProject = async (req, res) => {
             return res.status(404).json({ message: 'Project not found' });
         }
 
+        // Delete all tasks associated with this project
+        await Task.deleteMany({ 
+            project: req.params.id,
+            user: req.user._id 
+        });
+
         res.json({ message: 'Project deleted successfully', project });
 
     } catch (error) {
@@ -88,3 +95,69 @@ export const deleteProject = async (req, res) => {
     }
 }
 
+export const getProjectTasks = async(req, res) => {
+    try {
+        if(!req.user || !req.user._id) {
+             return res.status(401).json({ message: 'Unauthorized: User not found' });
+        }
+
+        const project = await Project.findOne({ 
+            _id: req.params.id, 
+            owner: req.user._id 
+        });
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        const tasks = await Task.find({ 
+            project: req.params.id,
+            user: req.user._id 
+        }).sort({ createdAt: -1 });
+
+        res.json(tasks);
+
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching project tasks', error });
+    }
+}
+
+export const getProjectStats = async(req, res) => {
+    try {
+        if(!req.user || !req.user._id) {
+             return res.status(401).json({ message: 'Unauthorized: User not found' });
+        }
+
+        const project = await Project.findOne({ 
+            _id: req.params.id, 
+            owner: req.user._id 
+        });
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        const totalTasks = await Task.countDocuments({ 
+            project: req.params.id,
+            user: req.user._id 
+        });
+
+        const completedTasks = await Task.countDocuments({ 
+            project: req.params.id,
+            user: req.user._id,
+            isCompleted: true 
+        });
+
+        const stats = {
+            totalTasks,
+            completedTasks,
+            pendingTasks: totalTasks - completedTasks,
+            completionRate: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+        };
+
+        res.json(stats);
+
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching project stats', error });
+    }
+}

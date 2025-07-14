@@ -1,6 +1,6 @@
 import express from 'express'
 import { protect } from '../middleware/authMiddleware.js';
-import { createProject, getProjectCount, getUserProjects, getProjectById, deleteProject } from '../controllers/projectController.js';
+import { createProject, getProjectCount, getUserProjects, getProjectById, deleteProject, getProjectTasks, getProjectStats } from '../controllers/projectController.js';
 
 const projectRouter = express.Router();
 
@@ -16,5 +16,11 @@ projectRouter.route('/num')
 projectRouter.route('/:id')
     .get(getProjectById)
     .delete(deleteProject)
+
+projectRouter.route('/:id/tasks')
+    .get(getProjectTasks)
+
+projectRouter.route('/:id/stats')
+    .get(getProjectStats)
 
 export default projectRouter;

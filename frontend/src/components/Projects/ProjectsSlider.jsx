@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { getColorMapping } from '../../utils/colorMap'
 
 export default function ProjectsSlider() {
     const { user } = useAuth();
@@ -11,7 +12,7 @@ export default function ProjectsSlider() {
     const [currentSlide, setCurrentSlide] = useState(0);
     const [showAddProject, setShowAddProject] = useState(false);
     const [newProjectName, setNewProjectName] = useState('');
-    const [newProjectColor, setNewProjectColor] = useState('#3b82f6');
+    const [newProjectColor, setNewProjectColor] = useState('blue');
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
     const predefinedColors = [
@@ -118,7 +119,7 @@ export default function ProjectsSlider() {
 
     const cancelAddProject = () => {
         setNewProjectName('');
-        setNewProjectColor('#3b82f6');
+        setNewProjectColor('blue');
         setShowAddProject(false);
     };
 
@@ -209,7 +210,8 @@ export default function ProjectsSlider() {
                                         >
                                             <div className="flex items-center justify-between mb-4">
                                                 <div
-                                                    className={`w-4 h-4 rounded-full flex-shrink-0 bg-${project.color}-700`}
+                                                    className="w-4 h-4 rounded-full flex-shrink-0 border border-white/20"
+                                                    style={{ backgroundColor: getColorMapping(project.color).hex }}
                                                 />
                                                 <div className="text-xs text-white/40 font-inter">
                                                     {new Date(project.createdAt).toLocaleDateString()}
@@ -301,7 +303,7 @@ export default function ProjectsSlider() {
                                                     ? 'border-white scale-115 shadow-lg' 
                                                     : 'border-white/20 hover:border-white/40'
                                             }`}
-                                            style={{ backgroundColor: color }}
+                                            style={{ backgroundColor: getColorMapping(color).hex }}
                                         />
                                     ))}
                                 </div>
