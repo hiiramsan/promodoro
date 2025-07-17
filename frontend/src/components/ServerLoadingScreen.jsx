@@ -50,21 +50,10 @@ const ServerLoadingScreen = ({ retryCount, error }) => {
       
       {/* Content */}
       <div className="relative z-10 text-center max-w-2xl px-6">
-        {/* App Name */}
-        <h1 className="text-5xl font-bold text-white mb-12 drop-shadow-lg">
-          Promodoro
-        </h1>
-        
-        {/* Loading Bar */}
-        <div className="mb-8">
-          <div className="w-80 h-2 bg-gray-600/40 rounded-full mx-auto overflow-hidden">
-            <div className="h-full bg-white rounded-full animate-pulse"></div>
-          </div>
-        </div>
 
         {/* Typing Message */}
         <div className="mb-4">
-          <p className="text-xl text-white/90 font-medium h-8 drop-shadow-md">
+          <p className="text-xl text-white/90 font-inter h-8 drop-shadow-md">
             {displayText}
             {isTyping && <span className="animate-pulse">|</span>}
           </p>
