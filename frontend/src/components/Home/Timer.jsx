@@ -77,15 +77,9 @@ const Timer = () => {
             setFocusSessions(prev => prev + 1);
         }
 
-        setCurrentState(nextState);
         const newDuration = getStateDuration(nextState);
-        setTimeLeft(newDuration);
-        localStorage.removeItem('pomodoroStart');
-        localStorage.removeItem('pomodoroTimeLeft');
-        localStorage.removeItem('pomodoroState');
-        startTimeRef.current = null;
         
-        // Clear all timers
+        // Clear all timers first
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
         }
@@ -95,30 +89,45 @@ const Timer = () => {
         if (backgroundIntervalRef.current) {
             clearInterval(backgroundIntervalRef.current);
         }
-        
+
+        // Update state
+        setCurrentState(nextState);
+        setTimeLeft(newDuration);
         setIsActive(isAutomatic);
         
-        // If automatically moving to next state, start the timer
+        // Clear localStorage
+        localStorage.removeItem('pomodoroStart');
+        localStorage.removeItem('pomodoroTimeLeft');
+        localStorage.removeItem('pomodoroState');
+        
+        // Reset start time reference
+        startTimeRef.current = null;
+        
+        // If automatically moving to next state, start the timer immediately
         if (isAutomatic) {
-            const duration = getStateDuration(nextState);
+            // Set start time to now since we're starting with full duration
             startTimeRef.current = Date.now();
-            // Set up both timers immediately
-            setupTimers();
+            
+            // Set up timers with the new state
+            setupTimersForState(nextState);
         }
     };
 
     // Calculate time left based on actual elapsed time
-    const calculateTimeLeft = () => {
-        if (!startTimeRef.current) return getStateDuration(currentState);
+    const calculateTimeLeft = (forState = null) => {
+        const stateToUse = forState || currentState;
+        if (!startTimeRef.current) return getStateDuration(stateToUse);
         
         const now = Date.now();
         const elapsed = Math.floor((now - startTimeRef.current) / 1000);
-        const duration = getStateDuration(currentState);
+        const duration = getStateDuration(stateToUse);
         return Math.max(0, duration - elapsed);
     };
 
-    // Setup both animation frame and background interval timers
-    const setupTimers = () => {
+    // Setup both animation frame and background interval timers for a specific state
+    const setupTimersForState = (forState = null) => {
+        const stateToUse = forState || currentState;
+        
         // Clear existing timers
         if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
@@ -131,7 +140,7 @@ const Timer = () => {
         const updateTimerFrame = () => {
             if (!isActive) return;
             
-            const newTimeLeft = calculateTimeLeft();
+            const newTimeLeft = calculateTimeLeft(stateToUse);
             setTimeLeft(newTimeLeft);
 
             if (newTimeLeft === 0) {
@@ -146,7 +155,7 @@ const Timer = () => {
         const updateTimerInterval = () => {
             if (!isActive) return;
             
-            const newTimeLeft = calculateTimeLeft();
+            const newTimeLeft = calculateTimeLeft(stateToUse);
             setTimeLeft(newTimeLeft);
 
             if (newTimeLeft === 0) {
@@ -158,6 +167,11 @@ const Timer = () => {
         // Start both timers
         animationFrameRef.current = requestAnimationFrame(updateTimerFrame);
         backgroundIntervalRef.current = setInterval(updateTimerInterval, 200);
+    };
+
+    // Setup both animation frame and background interval timers
+    const setupTimers = () => {
+        setupTimersForState(currentState);
     };
 
     // Handle visibility change to ensure timer works in background
@@ -193,7 +207,7 @@ const Timer = () => {
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [isActive]);
+    }, [isActive, currentState]);
 
     // Main timer effect
     useEffect(() => {
