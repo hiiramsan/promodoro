@@ -15,7 +15,7 @@ const Timer = () => {
 
     const { user } = useAuth();
     const [currentState, setCurrentState] = useState(TIMER_STATES.FOCUS);
-    const [timeLeft, setTimeLeft] = useState(25 * 60); // Default fallback
+    const [timeLeft, setTimeLeft] = useState(25 * 60);
     const [isActive, setIsActive] = useState(false);
     const [focusSessions, setFocusSessions] = useState(0);
     const [sessionsUntilLongBreak] = useState(4);
@@ -25,7 +25,11 @@ const Timer = () => {
     const animationFrameRef = useRef(null);
     const backgroundIntervalRef = useRef(null);
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    const [userPreferences, setUserPreferences] = useState(null);
+    const [userPreferences, setUserPreferences] = useState({
+        focusTime: 25 * 60,
+        shortBreakTime: 5 * 60,
+        longBreakTime: 15 * 60
+    });
     const [preferencesLoaded, setPreferencesLoaded] = useState(false);
 
 
@@ -33,57 +37,36 @@ const Timer = () => {
         try {
             const token = localStorage.getItem('token');
             if(!token || !user ) {
-                setUserPreferences({
-                    focusTime: 25 * 60,
-                    shortBreakTime: 5 * 60,
-                    longBreakTime: 15 * 60
-                });
+                console.log('No token or user, using defaults');
                 setPreferencesLoaded(true);
                 return;
             }
+            
             const response = await axios.get(`${apiBase}/api/auth/preferences`, 
                 { headers: {Authorization: `Bearer ${token}`} }
-            )
+            );
+            
             console.log('Fetched preferences:', response.data);
             setUserPreferences(response.data);
-            setPreferencesLoaded(true);
+            
+            // Update current timer if not active
+            if (!isActive) {
+                setTimeLeft(response.data.focusTime || 25 * 60);
+            }
+            
         } catch (error) {
-            console.log('Error!!! while fetching preferences, using defaults:', error);
-            setUserPreferences({
-                focusTime: 25 * 60,
-                shortBreakTime: 5 * 60,
-                longBreakTime: 15 * 60
-            });
+            console.log('Error fetching preferences, using defaults:', error);
+        } finally {
             setPreferencesLoaded(true);
         }
     }
 
+    // Load preferences on mount
     useEffect(() => {
         fetchUserPreferences();
     }, [user])
 
-    useEffect(() => {
-        if (preferencesLoaded && userPreferences && !isActive) {
-            console.log('Setting timeLeft with preferences:', userPreferences);
-            setTimeLeft(getStateDuration(currentState));
-        }
-    }, [preferencesLoaded, userPreferences, currentState])
-
     const getStateDuration = (state) => {
-        if (!preferencesLoaded || !userPreferences) {
-            switch (state) {
-                case TIMER_STATES.FOCUS:
-                    return 25 * 60;
-                case TIMER_STATES.SHORT_BREAK:
-                    return 5 * 60;
-                case TIMER_STATES.LONG_BREAK:
-                    return 15 * 60;
-                default:
-                    return 25 * 60;
-            }
-        }
-
-        // Use loaded preferences
         switch (state) {
             case TIMER_STATES.FOCUS:
                 return userPreferences.focusTime || 25 * 60;
@@ -302,7 +285,10 @@ const Timer = () => {
         }
     }, [isActive, currentState]);
 
+    // Restore timer state on page load - but only after preferences are loaded
     useEffect(() => {
+        if (!preferencesLoaded) return;
+        
         const restoreTimerState = () => {
             const savedStart = localStorage.getItem('pomodoroStart');
             const savedState = localStorage.getItem('pomodoroState');
@@ -319,30 +305,22 @@ const Timer = () => {
                     setCurrentState(savedState);
                     setTimeLeft(calculatedTimeLeft);
                     startTimeRef.current = savedStartTime;
-                    setIsActive(true); // Resume the timer
+                    setIsActive(true);
                 } else {
                     // Timer expired while away
                     localStorage.removeItem('pomodoroStart');
                     localStorage.removeItem('pomodoroState');
                     localStorage.removeItem('pomodoroActive');
-
-                    // Determine what state we should be in and play sound
-                    const sessionsPassedWhileAway = Math.floor(elapsed / (25 * 60)); // Rough estimate
-                    ring(); // Play completion sound
-
-                    // Reset to default state
+                    ring();
                     setCurrentState(TIMER_STATES.FOCUS);
                     setTimeLeft(getStateDuration(TIMER_STATES.FOCUS));
                 }
-            } else {
-                const duration = getStateDuration(currentState);
-                setTimeLeft(duration);
             }
+            // Don't set timeLeft if no saved state - let preferences handle it
         };
 
         restoreTimerState();
 
-        // Also restore state when page regains focus
         const handleFocus = () => {
             restoreTimerState();
         };
@@ -351,7 +329,7 @@ const Timer = () => {
         return () => {
             window.removeEventListener('focus', handleFocus);
         };
-    }, []);
+    }, [preferencesLoaded]); // Only run after preferences are loaded
 
     const toggleTimer = () => {
         if (!isActive) {
