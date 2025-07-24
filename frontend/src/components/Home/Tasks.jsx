@@ -250,11 +250,6 @@ const Tasks = () => {
 
                         </li>
                     ))}
-                    {tasks.length === 0 && (
-                        <li className="text-center text-white/60 py-2">
-                            What do you need to get done today?
-                        </li>
-                    )}
                     <li className="flex flex-row items-center justify-between">
                         <button
                             onClick={() => setShowAddTask(true)}

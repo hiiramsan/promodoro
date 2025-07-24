@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSounds } from "../../assets/context/SoundProvider";
+import { useAuth } from "../../context/AuthContext";
+import axios from "axios";
 
 const Timer = () => {
 
@@ -11,8 +13,9 @@ const Timer = () => {
         LONG_BREAK: 'long_break'
     };
 
+    const { user } = useAuth();
     const [currentState, setCurrentState] = useState(TIMER_STATES.FOCUS);
-    const [timeLeft, setTimeLeft] = useState(25 * 60);
+    const [timeLeft, setTimeLeft] = useState(25 * 60); // Default fallback
     const [isActive, setIsActive] = useState(false);
     const [focusSessions, setFocusSessions] = useState(0);
     const [sessionsUntilLongBreak] = useState(4);
@@ -21,15 +24,73 @@ const Timer = () => {
     const startTimeRef = useRef(null);
     const animationFrameRef = useRef(null);
     const backgroundIntervalRef = useRef(null);
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const [userPreferences, setUserPreferences] = useState(null);
+    const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+
+
+    const fetchUserPreferences = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if(!token || !user ) {
+                setUserPreferences({
+                    focusTime: 25 * 60,
+                    shortBreakTime: 5 * 60,
+                    longBreakTime: 15 * 60
+                });
+                setPreferencesLoaded(true);
+                return;
+            }
+            const response = await axios.get(`${apiBase}/api/auth/preferences`, 
+                { headers: {Authorization: `Bearer ${token}`} }
+            )
+            console.log('Fetched preferences:', response.data);
+            setUserPreferences(response.data);
+            setPreferencesLoaded(true);
+        } catch (error) {
+            console.log('Error!!! while fetching preferences, using defaults:', error);
+            setUserPreferences({
+                focusTime: 25 * 60,
+                shortBreakTime: 5 * 60,
+                longBreakTime: 15 * 60
+            });
+            setPreferencesLoaded(true);
+        }
+    }
+
+    useEffect(() => {
+        fetchUserPreferences();
+    }, [user])
+
+    useEffect(() => {
+        if (preferencesLoaded && userPreferences && !isActive) {
+            console.log('Setting timeLeft with preferences:', userPreferences);
+            setTimeLeft(getStateDuration(currentState));
+        }
+    }, [preferencesLoaded, userPreferences, currentState])
 
     const getStateDuration = (state) => {
+        if (!preferencesLoaded || !userPreferences) {
+            switch (state) {
+                case TIMER_STATES.FOCUS:
+                    return 25 * 60;
+                case TIMER_STATES.SHORT_BREAK:
+                    return 5 * 60;
+                case TIMER_STATES.LONG_BREAK:
+                    return 15 * 60;
+                default:
+                    return 25 * 60;
+            }
+        }
+
+        // Use loaded preferences
         switch (state) {
             case TIMER_STATES.FOCUS:
-                return 25 * 60;
+                return userPreferences.focusTime || 25 * 60;
             case TIMER_STATES.SHORT_BREAK:
-                return 5 * 60;
+                return userPreferences.shortBreakTime || 5 * 60;
             case TIMER_STATES.LONG_BREAK:
-                return 15 * 60;
+                return userPreferences.longBreakTime || 15 * 60;
             default:
                 return 25 * 60;
         }
@@ -58,7 +119,7 @@ const Timer = () => {
         localStorage.removeItem('pomodoroTimeLeft');
         localStorage.removeItem('pomodoroState');
         startTimeRef.current = null;
-        
+
         // Clear all timers
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
@@ -78,7 +139,7 @@ const Timer = () => {
         }
 
         const newDuration = getStateDuration(nextState);
-        
+
         // Clear all timers first
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
@@ -94,41 +155,38 @@ const Timer = () => {
         setCurrentState(nextState);
         setTimeLeft(newDuration);
         setIsActive(isAutomatic);
-        
+
         // Clear localStorage
         localStorage.removeItem('pomodoroStart');
         localStorage.removeItem('pomodoroTimeLeft');
         localStorage.removeItem('pomodoroState');
-        
+
         // Reset start time reference
         startTimeRef.current = null;
-        
+
         // If automatically moving to next state, start the timer immediately
         if (isAutomatic) {
             // Set start time to now since we're starting with full duration
             startTimeRef.current = Date.now();
-            
+
             // Set up timers with the new state
             setupTimersForState(nextState);
         }
     };
 
-    // Calculate time left based on actual elapsed time
     const calculateTimeLeft = (forState = null) => {
         const stateToUse = forState || currentState;
         if (!startTimeRef.current) return getStateDuration(stateToUse);
-        
+
         const now = Date.now();
         const elapsed = Math.floor((now - startTimeRef.current) / 1000);
         const duration = getStateDuration(stateToUse);
         return Math.max(0, duration - elapsed);
     };
 
-    // Setup both animation frame and background interval timers for a specific state
     const setupTimersForState = (forState = null) => {
         const stateToUse = forState || currentState;
-        
-        // Clear existing timers
+
         if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
         }
@@ -139,7 +197,7 @@ const Timer = () => {
         // Animation frame for smooth UI updates (works when tab is active)
         const updateTimerFrame = () => {
             if (!isActive) return;
-            
+
             const newTimeLeft = calculateTimeLeft(stateToUse);
             setTimeLeft(newTimeLeft);
 
@@ -154,7 +212,7 @@ const Timer = () => {
         // Background interval for when tab is inactive (every 200ms for better precision)
         const updateTimerInterval = () => {
             if (!isActive) return;
-            
+
             const newTimeLeft = calculateTimeLeft(stateToUse);
             setTimeLeft(newTimeLeft);
 
@@ -169,12 +227,10 @@ const Timer = () => {
         backgroundIntervalRef.current = setInterval(updateTimerInterval, 200);
     };
 
-    // Setup both animation frame and background interval timers
     const setupTimers = () => {
         setupTimersForState(currentState);
     };
 
-    // Handle visibility change to ensure timer works in background
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.hidden) {
@@ -187,7 +243,7 @@ const Timer = () => {
                 if (isActive) {
                     const updateTimerFrame = () => {
                         if (!isActive) return;
-                        
+
                         const newTimeLeft = calculateTimeLeft();
                         setTimeLeft(newTimeLeft);
 
@@ -209,7 +265,6 @@ const Timer = () => {
         };
     }, [isActive, currentState]);
 
-    // Main timer effect
     useEffect(() => {
         if (isActive) {
             if (!startTimeRef.current) {
@@ -237,7 +292,6 @@ const Timer = () => {
         };
     }, [isActive]);
 
-    // Persist timer state more frequently
     useEffect(() => {
         if (isActive && startTimeRef.current) {
             localStorage.setItem('pomodoroStart', startTimeRef.current.toString());
@@ -248,7 +302,6 @@ const Timer = () => {
         }
     }, [isActive, currentState]);
 
-    // Restore timer state on page load and handle page focus
     useEffect(() => {
         const restoreTimerState = () => {
             const savedStart = localStorage.getItem('pomodoroStart');
@@ -272,11 +325,11 @@ const Timer = () => {
                     localStorage.removeItem('pomodoroStart');
                     localStorage.removeItem('pomodoroState');
                     localStorage.removeItem('pomodoroActive');
-                    
+
                     // Determine what state we should be in and play sound
                     const sessionsPassedWhileAway = Math.floor(elapsed / (25 * 60)); // Rough estimate
                     ring(); // Play completion sound
-                    
+
                     // Reset to default state
                     setCurrentState(TIMER_STATES.FOCUS);
                     setTimeLeft(getStateDuration(TIMER_STATES.FOCUS));
@@ -350,7 +403,6 @@ const Timer = () => {
         }
     };
 
-    // Update document title with timer state
     useEffect(() => {
         const minutes = Math.floor(timeLeft / 60);
         const seconds = timeLeft % 60;
@@ -392,7 +444,16 @@ const Timer = () => {
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-maximize-icon lucide-maximize"><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M21 8V5a2 2 0 0 0-2-2h-3" /><path d="M3 16v3a2 2 0 0 0 2 2h3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
                         )}
                     </button>
-                </div>            <div className={`flex w-full mb-6 rounded-xl p-1 gap-1 ${isExpanded ? 'bg-white/8' : 'bg-white/5'}`}>
+                </div>
+
+                {!preferencesLoaded ? (
+                    <div className="flex flex-col items-center justify-center flex-1">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white/50 mb-4"></div>
+                        <p className="text-white/60">Loading preferences...</p>
+                    </div>
+                ) : (
+                    <>
+                        <div className={`flex w-full mb-6 rounded-xl p-1 gap-1 ${isExpanded ? 'bg-white/8' : 'bg-white/5'}`}>
                     {Object.values(TIMER_STATES).map((state) => (
                         <button
                             key={state}
@@ -483,6 +544,8 @@ const Timer = () => {
                     </span>
                 </div>
 
+                    </>
+                )}
             </div>
         </>
     );
