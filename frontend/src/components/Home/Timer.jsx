@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSounds } from "../../assets/context/SoundProvider";
 import { useAuth } from "../../context/AuthContext";
+import SettingsModal from "./SettingsModal";
 import axios from "axios";
 
 const Timer = () => {
@@ -31,29 +32,32 @@ const Timer = () => {
         longBreakTime: 15 * 60
     });
     const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+    const [showPreferencesModal, setShowPreferencesModal] = useState(false);
+    const [selectedTask, setSelectedTask] = useState(null);
+    const [userTasks, setUserTasks] = useState([]);
 
 
     const fetchUserPreferences = async () => {
         try {
             const token = localStorage.getItem('token');
-            if(!token || !user ) {
+            if (!token || !user) {
                 console.log('No token or user, using defaults');
                 setPreferencesLoaded(true);
                 return;
             }
-            
-            const response = await axios.get(`${apiBase}/api/auth/preferences`, 
-                { headers: {Authorization: `Bearer ${token}`} }
+
+            const response = await axios.get(`${apiBase}/api/auth/preferences`,
+                { headers: { Authorization: `Bearer ${token}` } }
             );
-            
+
             console.log('Fetched preferences:', response.data);
             setUserPreferences(response.data);
-            
+
             // Update current timer if not active
             if (!isActive) {
                 setTimeLeft(response.data.focusTime || 25 * 60);
             }
-            
+
         } catch (error) {
             console.log('Error fetching preferences, using defaults:', error);
         } finally {
@@ -61,9 +65,106 @@ const Timer = () => {
         }
     }
 
-    // Load preferences on mount
+    const fetchUserTasks = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token || !user) return;
+
+            const response = await axios.get(`${apiBase}/api/tasks`, 
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setUserTasks(response.data);
+            
+            // If selected task no longer exists, clear it
+            if (selectedTask && !response.data.find(task => task._id === selectedTask._id)) {
+                setSelectedTask(null);
+            }
+        } catch (error) {
+            console.log('Error fetching tasks:', error);
+        }
+    }
+
+    const handlePreferencesSubmit = async (newPreferences) => {
+        setUserPreferences(newPreferences);
+        
+        // Reset timer completely with new preferences
+        const wasActive = isActive;
+        
+        // Stop the timer if it was running
+        if (wasActive) {
+            setIsActive(false);
+        }
+        
+        // Clear all timers and references
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+        }
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+        }
+        if (backgroundIntervalRef.current) {
+            clearInterval(backgroundIntervalRef.current);
+        }
+        
+        localStorage.removeItem('pomodoroStart');
+        localStorage.removeItem('pomodoroTimeLeft');
+        localStorage.removeItem('pomodoroState');
+        localStorage.removeItem('pomodoroActive');
+        
+        startTimeRef.current = null;
+        
+        const newDuration = getStateDurationFromPreferences(currentState, newPreferences);
+        setTimeLeft(newDuration);
+        
+        if (wasActive) {
+            setTimeout(() => {
+                setIsActive(true);
+            }, 100); 
+        }
+    }
+
+    const getStateDurationFromPreferences = (state, preferences) => {
+        switch (state) {
+            case TIMER_STATES.FOCUS:
+                return preferences.focusTime || 25 * 60;
+            case TIMER_STATES.SHORT_BREAK:
+                return preferences.shortBreakTime || 5 * 60;
+            case TIMER_STATES.LONG_BREAK:
+                return preferences.longBreakTime || 15 * 60;
+            default:
+                return 25 * 60;
+        }
+    };
+
+    const openPreferencesModal = () => {
+        setShowPreferencesModal(true);
+    }
+
     useEffect(() => {
         fetchUserPreferences();
+        fetchUserTasks();
+    }, [user])
+
+    useEffect(() => {
+        const handleFocus = () => {
+            if (user) {
+                fetchUserTasks();
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (!document.hidden && user) {
+                fetchUserTasks();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        return () => {
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [user])
 
     const getStateDuration = (state) => {
@@ -285,10 +386,9 @@ const Timer = () => {
         }
     }, [isActive, currentState]);
 
-    // Restore timer state on page load - but only after preferences are loaded
     useEffect(() => {
         if (!preferencesLoaded) return;
-        
+
         const restoreTimerState = () => {
             const savedStart = localStorage.getItem('pomodoroStart');
             const savedState = localStorage.getItem('pomodoroState');
@@ -329,7 +429,7 @@ const Timer = () => {
         return () => {
             window.removeEventListener('focus', handleFocus);
         };
-    }, [preferencesLoaded]); // Only run after preferences are loaded
+    }, [preferencesLoaded]);
 
     const toggleTimer = () => {
         if (!isActive) {
@@ -432,99 +532,141 @@ const Timer = () => {
                 ) : (
                     <>
                         <div className={`flex w-full mb-6 rounded-xl p-1 gap-1 ${isExpanded ? 'bg-white/8' : 'bg-white/5'}`}>
-                    {Object.values(TIMER_STATES).map((state) => (
-                        <button
-                            key={state}
-                            onClick={() => switchToState(state)}
-                            className={`flex-1 py-2 px-2 sm:px-3 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap ${currentState === state
-                                ? (isExpanded ? 'bg-white/25 text-white shadow-sm' : 'bg-white/20 text-white shadow-sm')
-                                : (isExpanded ? 'text-white/70 hover:text-white hover:bg-white/15' : 'text-white/60 hover:text-white/80 hover:bg-white/10')
-                                }`}
-                        >
-                            {getStateLabel(state)}
-                        </button>
-                    ))}
-                </div>
-                <div className={`relative mb-6 flex-shrink-0 ${isExpanded ? 'w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80' : 'w-52 h-52'}`}>
-                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                        <circle
-                            cx="50"
-                            cy="50"
-                            r="45"
-                            stroke="rgba(255,255,255,0.1)"
-                            strokeWidth="3"
-                            fill="none"
-                        />
-                        <circle
-                            cx="50"
-                            cy="50"
-                            r="45"
-                            stroke={getStateColor(currentState)}
-                            strokeWidth="3"
-                            fill="none"
-                            strokeLinecap="round"
-                            strokeDasharray={`${2 * Math.PI * 45}`}
-                            strokeDashoffset={`${2 * Math.PI * 45 * (1 - getProgress() / 100)}`}
-                            className="transition-all duration-1000 ease-linear"
-                        />
-                    </svg>
+                            {Object.values(TIMER_STATES).map((state) => (
+                                <button
+                                    key={state}
+                                    onClick={() => switchToState(state)}
+                                    className={`flex-1 py-2 px-2 sm:px-3 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer whitespace-nowrap ${currentState === state
+                                        ? (isExpanded ? 'bg-white/25 text-white shadow-sm' : 'bg-white/20 text-white shadow-sm')
+                                        : (isExpanded ? 'text-white/70 hover:text-white hover:bg-white/15' : 'text-white/60 hover:text-white/80 hover:bg-white/10')
+                                        }`}
+                                >
+                                    {getStateLabel(state)}
+                                </button>
+                            ))}
+                        </div>
+                        <div className={`relative mb-6 flex-shrink-0 ${isExpanded ? 'w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80' : 'w-52 h-52'}`}>
+                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="45"
+                                    stroke="rgba(255,255,255,0.1)"
+                                    strokeWidth="3"
+                                    fill="none"
+                                />
+                                <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="45"
+                                    stroke={getStateColor(currentState)}
+                                    strokeWidth="3"
+                                    fill="none"
+                                    strokeLinecap="round"
+                                    strokeDasharray={`${2 * Math.PI * 45}`}
+                                    strokeDashoffset={`${2 * Math.PI * 45 * (1 - getProgress() / 100)}`}
+                                    className="transition-all duration-1000 ease-linear"
+                                />
+                            </svg>
 
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center">
-                            <div className={`font-mono font-inter mb-1 ${isExpanded ? 'text-5xl sm:text-6xl lg:text-7xl' : 'text-4xl'}`}>
-                                {formatTime(timeLeft)}
-                            </div>
-                            <div className={`text-white/60 ${isExpanded ? 'text-base sm:text-lg' : 'text-sm'}`}>
-                                {currentState === TIMER_STATES.FOCUS ? 'Stay focused' : 'Take a break'}
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="text-center">
+                                    <div className={`font-mono font-inter mb-1 ${isExpanded ? 'text-5xl sm:text-6xl lg:text-7xl' : 'text-4xl'}`}>
+                                        {formatTime(timeLeft)}
+                                    </div>
+                                    <div className={`text-white/60 ${isExpanded ? 'text-base sm:text-lg' : 'text-sm'}`}>
+                                        {currentState === TIMER_STATES.FOCUS ? 'Stay focused' : 'Take a break'}
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-                <div className="relative flex justify-center mb-4">
-                    <button
-                        onClick={toggleTimer}
-                        className={`px-6 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer ${isExpanded
-                            ? 'bg-white/15 hover:bg-white/25 text-white border border-white/25'
-                            : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
-                            }`}
-                    >
-                        {isActive ? 'Pause' : 'Start'}
-                    </button>
-                    <button
-                        onClick={skipToNext}
-                        className={`ml-3 p-2 rounded-lg font-medium transition-all duration-200 cursor-pointer ${isExpanded
-                            ? 'bg-white/15 hover:bg-white/25 text-white border border-white/25'
-                            : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
-                            }`}
-                        title="Skip to next session"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
-                    </button>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                    <span className="text-sm text-white/60">Until long break:</span>
-                    <div className="flex space-x-1">
-                        {[...Array(sessionsUntilLongBreak)].map((_, i) => (
-                            <div
-                                key={i}
-                                className={`w-3 h-3 rounded-full ${i < (focusSessions % sessionsUntilLongBreak)
-                                    ? 'bg-blue-500'
-                                    : 'bg-white/20'
+                        <div className="relative flex justify-center mb-4">
+                            <button
+                                onClick={toggleTimer}
+                                className={`px-6 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer ${isExpanded
+                                    ? 'bg-white/15 hover:bg-white/25 text-white border border-white/25'
+                                    : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
                                     }`}
-                            />
-                        ))}
-                    </div>
-                    <span className="text-sm font-semibold text-blue-400 ml-2">
-                        {sessionsUntilLongBreak - (focusSessions % sessionsUntilLongBreak)} left
-                    </span>
-                </div>
+                            >
+                                {isActive ? 'Pause' : 'Start'}
+                            </button>
+                            <button
+                                onClick={skipToNext}
+                                className={`ml-3 p-2 rounded-lg font-medium transition-all duration-200 cursor-pointer ${isExpanded
+                                    ? 'bg-white/15 hover:bg-white/25 text-white border border-white/25'
+                                    : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
+                                    }`}
+                                title="Skip to next session"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                            <span className="text-sm text-white/60">Until long break:</span>
+                            <div className="flex space-x-1">
+                                {[...Array(sessionsUntilLongBreak)].map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className={`w-3 h-3 rounded-full ${i < (focusSessions % sessionsUntilLongBreak)
+                                            ? 'bg-blue-500'
+                                            : 'bg-white/20'
+                                            }`}
+                                    />
+                                ))}
+                            </div>
+                            <span className="text-sm font-semibold text-blue-400 ml-2">
+                                {sessionsUntilLongBreak - (focusSessions % sessionsUntilLongBreak)} left
+                            </span>
+                        </div>
+
+                        {!isExpanded && (
+                            <div className="w-full mt-6 pt-4 border-t border-white/10">
+                                <div className="flex items-center justify-between gap-4">
+                                    <button
+                                        onClick={openPreferencesModal}
+                                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-sm transition-all duration-200 cursor-pointer"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.807-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" />
+                                            <circle cx="12" cy="12" r="3" />
+                                        </svg>
+                                        Settings
+                                    </button>
+
+                                    <div className="flex-1">
+                                        <select
+                                            value={selectedTask?._id || ''}
+                                            onChange={(e) => {
+                                                const task = userTasks.find(t => t._id === e.target.value);
+                                                setSelectedTask(task || null);
+                                            }}
+                                            className="w-full px-3 py-2 rounded-lg bg-white/10 text-white text-sm border border-white/20 focus:border-white/40 focus:outline-none"
+                                        >
+                                            <option value="">I'm currently working on...</option>
+                                            {userTasks.map((task) => (
+                                                <option key={task._id} value={task._id} className="bg-gray-800">
+                                                    {task.title}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                     </>
                 )}
             </div>
+
+            <SettingsModal
+                isOpen={showPreferencesModal}
+                onClose={() => setShowPreferencesModal(false)}
+                userPreferences={userPreferences}
+                onPreferencesUpdate={handlePreferencesSubmit}
+            />
         </>
     );
 }
