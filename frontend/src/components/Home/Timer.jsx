@@ -3,6 +3,7 @@ import { useSounds } from "../../assets/context/SoundProvider";
 import { useAuth } from "../../context/AuthContext";
 import SettingsModal from "./SettingsModal";
 import axios from "axios";
+import TaskModal from "./TaskModal";
 
 const Timer = () => {
 
@@ -35,6 +36,9 @@ const Timer = () => {
     const [showPreferencesModal, setShowPreferencesModal] = useState(false);
     const [selectedTask, setSelectedTask] = useState(null);
     const [userTasks, setUserTasks] = useState([]);
+    const productiveStartTimeRef = useRef(null);
+    const [showTaskModal, setShowTaskModal] = useState(false);
+
 
 
     const fetchUserPreferences = async () => {
@@ -50,7 +54,6 @@ const Timer = () => {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
-            console.log('Fetched preferences:', response.data);
             setUserPreferences(response.data);
 
             // Update current timer if not active
@@ -70,14 +73,22 @@ const Timer = () => {
             const token = localStorage.getItem('token');
             if (!token || !user) return;
 
-            const response = await axios.get(`${apiBase}/api/tasks`, 
+            const response = await axios.get(`${apiBase}/api/tasks`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setUserTasks(response.data);
-            
-            // If selected task no longer exists, clear it
-            if (selectedTask && !response.data.find(task => task._id === selectedTask._id)) {
-                setSelectedTask(null);
+
+            // Check if selected task still exists and is not completed
+            if (selectedTask) {
+                const currentTask = response.data.find(task => task._id === selectedTask._id);
+                
+                if (!currentTask || currentTask.completed) {
+                    // Task was deleted or completed, stop working on it
+                    await stopCurrentTask();
+                } else {
+                    // Update the selected task with latest data (in case project info changed)
+                    setSelectedTask(currentTask);
+                }
             }
         } catch (error) {
             console.log('Error fetching tasks:', error);
@@ -86,15 +97,15 @@ const Timer = () => {
 
     const handlePreferencesSubmit = async (newPreferences) => {
         setUserPreferences(newPreferences);
-        
+
         // Reset timer completely with new preferences
         const wasActive = isActive;
-        
+
         // Stop the timer if it was running
         if (wasActive) {
             setIsActive(false);
         }
-        
+
         // Clear all timers and references
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
@@ -105,21 +116,21 @@ const Timer = () => {
         if (backgroundIntervalRef.current) {
             clearInterval(backgroundIntervalRef.current);
         }
-        
+
         localStorage.removeItem('pomodoroStart');
         localStorage.removeItem('pomodoroTimeLeft');
         localStorage.removeItem('pomodoroState');
         localStorage.removeItem('pomodoroActive');
-        
+
         startTimeRef.current = null;
-        
+
         const newDuration = getStateDurationFromPreferences(currentState, newPreferences);
         setTimeLeft(newDuration);
-        
+
         if (wasActive) {
             setTimeout(() => {
                 setIsActive(true);
-            }, 100); 
+            }, 100);
         }
     }
 
@@ -138,6 +149,18 @@ const Timer = () => {
 
     const openPreferencesModal = () => {
         setShowPreferencesModal(true);
+    }
+
+    const stopCurrentTask = async () => {
+        // Log any remaining productive time
+        if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
+            const now = Date.now();
+            const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
+            await logTimeToProject(productiveTime);
+        }
+        
+        setSelectedTask(null);
+        productiveStartTimeRef.current = null;
     }
 
     useEffect(() => {
@@ -160,12 +183,22 @@ const Timer = () => {
 
         window.addEventListener('focus', handleFocus);
         document.addEventListener('visibilitychange', handleVisibilityChange);
-        
+
         return () => {
             window.removeEventListener('focus', handleFocus);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [user])
+
+    useEffect(() => {
+        if (!selectedTask || !user) return;
+
+        const checkTaskStatus = setInterval(() => {
+            fetchUserTasks();
+        }, 30000); 
+
+        return () => clearInterval(checkTaskStatus);
+    }, [selectedTask, user])
 
     const getStateDuration = (state) => {
         switch (state) {
@@ -216,15 +249,20 @@ const Timer = () => {
         }
     };
 
-    const skipToNext = (isAutomatic = false) => {
+    const skipToNext = async (isAutomatic = false) => {
         const nextState = getNextState();
+
+        // Log productive time if we're finishing a focus session and have a selected task with project
+        if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
+            const now = Date.now();
+            const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
+            await logTimeToProject(productiveTime);
+            productiveStartTimeRef.current = null;
+        }
+
         if (currentState === TIMER_STATES.FOCUS) {
             setFocusSessions(prev => prev + 1);
         }
-
-        const newDuration = getStateDuration(nextState);
-
-        // Clear all timers first
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
         }
@@ -235,25 +273,18 @@ const Timer = () => {
             clearInterval(backgroundIntervalRef.current);
         }
 
-        // Update state
         setCurrentState(nextState);
-        setTimeLeft(newDuration);
+        setTimeLeft(getStateDuration(nextState));
         setIsActive(isAutomatic);
 
-        // Clear localStorage
         localStorage.removeItem('pomodoroStart');
         localStorage.removeItem('pomodoroTimeLeft');
         localStorage.removeItem('pomodoroState');
 
-        // Reset start time reference
         startTimeRef.current = null;
 
-        // If automatically moving to next state, start the timer immediately
         if (isAutomatic) {
-            // Set start time to now since we're starting with full duration
             startTimeRef.current = Date.now();
-
-            // Set up timers with the new state
             setupTimersForState(nextState);
         }
     };
@@ -431,14 +462,28 @@ const Timer = () => {
         };
     }, [preferencesLoaded]);
 
-    const toggleTimer = () => {
+    const toggleTimer = async () => {
         if (!isActive) {
             if (!startTimeRef.current) {
                 const duration = getStateDuration(currentState);
                 startTimeRef.current = Date.now() - (duration - timeLeft) * 1000;
             }
+            
+            // Start productive time tracking if we're in focus mode and have a task with project
+            if (currentState === TIMER_STATES.FOCUS && selectedTask?.project) {
+                productiveStartTimeRef.current = Date.now();
+            }
+            
             start();
         } else {
+            // Log productive time when pausing during focus session
+            if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
+                const now = Date.now();
+                const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
+                await logTimeToProject(productiveTime);
+                productiveStartTimeRef.current = null;
+            }
+            
             pause();
         }
         setIsActive(!isActive);
@@ -500,6 +545,23 @@ const Timer = () => {
 
         document.title = `${state} - ${minutes}:${seconds.toString().padStart(2, '0')}`
     }, [timeLeft, currentState]);
+
+    const logTimeToProject = async (seconds) => {
+        if (!selectedTask?.project?._id || !user) return;
+
+        const token = localStorage.getItem('token');
+
+        try {
+            await axios.patch(`${apiBase}/api/projects/${selectedTask.project._id}/log-time`, {
+                timeSpent: seconds
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            console.log(`Logged ${seconds} to project`)
+        } catch (error) {
+            console.log('failed to add seconds to project, maybe bcuz of the id of the project lol!!!')
+        }
+    }
 
     return (
         <>
@@ -636,23 +698,29 @@ const Timer = () => {
                                         Settings
                                     </button>
 
-                                    <div className="flex-1">
-                                        <select
-                                            value={selectedTask?._id || ''}
-                                            onChange={(e) => {
-                                                const task = userTasks.find(t => t._id === e.target.value);
-                                                setSelectedTask(task || null);
-                                            }}
-                                            className="w-full px-3 py-2 rounded-lg bg-white/10 text-white text-sm border border-white/20 focus:border-white/40 focus:outline-none"
+                                    <div className="flex-1 flex gap-2">
+                                        <button
+                                            onClick={() => setShowTaskModal(true)}
+                                            className="flex-1 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-sm border border-white/20 text-left transition-all duration-200 cursor-pointer"
                                         >
-                                            <option value="">I'm currently working on...</option>
-                                            {userTasks.map((task) => (
-                                                <option key={task._id} value={task._id} className="bg-gray-800">
-                                                    {task.title}
-                                                </option>
-                                            ))}
-                                        </select>
+                                            {selectedTask
+                                                ? `Working on ${selectedTask.title}${selectedTask.project ? ` (${selectedTask.project.name})` : ''}`
+                                                : "I'm currently working on..."}
+                                        </button>
+                                        
+                                        {selectedTask && (
+                                            <button
+                                                onClick={stopCurrentTask}
+                                                className="px-3 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-red-200 text-sm border border-red-500/30 transition-all duration-200 cursor-pointer"
+                                                title="Stop working on current task"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        )}
                                     </div>
+
                                 </div>
                             </div>
                         )}
@@ -667,6 +735,33 @@ const Timer = () => {
                 userPreferences={userPreferences}
                 onPreferencesUpdate={handlePreferencesSubmit}
             />
+
+            <TaskModal
+                isOpen={showTaskModal}
+                onClose={() => setShowTaskModal(false)}
+                onSelect={async (task) => {
+                    if (
+                        currentState === TIMER_STATES.FOCUS &&
+                        isActive &&
+                        selectedTask?.project &&
+                        productiveStartTimeRef.current
+                    ) {
+                        const now = Date.now();
+                        const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
+                        await logTimeToProject(productiveTime);
+                    }
+
+                    setSelectedTask(task);
+                    
+                    // Start tracking for new task if we're in active focus mode
+                    if (currentState === TIMER_STATES.FOCUS && isActive && task?.project) {
+                        productiveStartTimeRef.current = Date.now();
+                    } else {
+                        productiveStartTimeRef.current = null;
+                    }
+                }}
+            />
+
         </>
     );
 }

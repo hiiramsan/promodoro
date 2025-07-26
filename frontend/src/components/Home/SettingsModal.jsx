@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 
 const SettingsModal = ({ 
@@ -21,7 +21,6 @@ const SettingsModal = ({
             const token = localStorage.getItem('token');
             if (!token) return;
 
-            // Ensure all values are valid numbers with defaults
             const focusTime = tempPreferences.focusTime === '' ? 25 : parseInt(tempPreferences.focusTime);
             const shortBreakTime = tempPreferences.shortBreakTime === '' ? 5 : parseInt(tempPreferences.shortBreakTime);
             const longBreakTime = tempPreferences.longBreakTime === '' ? 15 : parseInt(tempPreferences.longBreakTime);
@@ -53,9 +52,11 @@ const SettingsModal = ({
     };
 
     // Reset temp preferences when modal opens
-    if (isOpen && tempPreferences.focusTime !== Math.floor(userPreferences.focusTime / 60)) {
-        openModal();
-    }
+    useEffect(() => {
+        if (isOpen) {
+            openModal();
+        }
+    }, [isOpen, userPreferences]);
 
     if (!isOpen) return null;
 
@@ -66,7 +67,7 @@ const SettingsModal = ({
                     <h3 className="text-xl font-semibold text-white">Timer Settings</h3>
                     <button
                         onClick={onClose}
-                        className="p-1 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                        className="p-1 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -114,7 +115,7 @@ const SettingsModal = ({
                             <input
                                 type="number"
                                 min="1"
-                                max="30"
+                                max="120"
                                 value={tempPreferences.shortBreakTime}
                                 onChange={(e) => {
                                     const value = e.target.value;
@@ -122,7 +123,7 @@ const SettingsModal = ({
                                         setTempPreferences(prev => ({ ...prev, shortBreakTime: '' }));
                                     } else {
                                         const num = parseInt(value);
-                                        if (num >= 1 && num <= 30) {
+                                        if (num >= 1 && num <= 120) {
                                             setTempPreferences(prev => ({ ...prev, shortBreakTime: num }));
                                         }
                                     }
@@ -145,7 +146,7 @@ const SettingsModal = ({
                             <input
                                 type="number"
                                 min="1"
-                                max="60"
+                                max="120"
                                 value={tempPreferences.longBreakTime}
                                 onChange={(e) => {
                                     const value = e.target.value;
@@ -153,7 +154,7 @@ const SettingsModal = ({
                                         setTempPreferences(prev => ({ ...prev, longBreakTime: '' }));
                                     } else {
                                         const num = parseInt(value);
-                                        if (num >= 1 && num <= 60) {
+                                        if (num >= 1 && num <= 120) {
                                             setTempPreferences(prev => ({ ...prev, longBreakTime: num }));
                                         }
                                     }

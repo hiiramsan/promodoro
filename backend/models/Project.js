@@ -14,7 +14,11 @@ const projectSchema = new mongoose.Schema({
     color: {
         type: String,
         default: 'blue'
-    }
+    },
+    timeSpent: {
+        type: Number,
+        default: 0
+    },
 }, { timestamps: true });
 
 export default mongoose.model('Project', projectSchema)
