@@ -13,7 +13,7 @@ export default function ProjectDetail() {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [project, setProject] = useState(null);
-    const [stats, setStats] = useState({ totalTasks: 0, completedTasks: 0, pendingTasks: 0, completionRate: 0 });
+    const [stats, setStats] = useState({ totalTasks: 0, completedTasks: 0, pendingTasks: 0, timeSpent: 0 });
     const [projectTasks, setProjectTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [deleting, setDeleting] = useState(false);
@@ -25,7 +25,6 @@ export default function ProjectDetail() {
     const { pop } = useSounds();
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-    // fetch project, project tasks and stats
     useEffect(() => {
         const fetchProjectData = async () => {
             try {
@@ -35,7 +34,6 @@ export default function ProjectDetail() {
                     return;
                 }
 
-                // Fetch project details and stats in parallel
                 const [projectResponse, statsResponse, tasksResponse] = await Promise.all([
                     axios.get(`${apiBase}/api/projects/${id}`, {
                         headers: { Authorization: `Bearer ${token}` }
@@ -159,7 +157,6 @@ export default function ProjectDetail() {
         }
     };
 
-    // Toggle task completion
     const toggleTask = async (id) => {
         const token = localStorage.getItem('token');
         if (!token) return;
@@ -372,8 +369,8 @@ export default function ProjectDetail() {
                                     <div className="text-sm text-white/60 font-inter">Completed</div>
                                 </div>
                                 <div className="backdrop-blur-md bg-white/5 border border-white/10 rounded-xl p-4">
-                                    <div className="text-2xl font-inter-bold text-white mb-1">{stats.completionRate}%</div>
-                                    <div className="text-sm text-white/60 font-inter">Completion Rate</div>
+                                    <div className="text-2xl font-inter-bold text-white mb-1">{stats.timeSpent} min</div>
+                                    <div className="text-sm text-white/60 font-inter">Time spent</div>
                                 </div>
                             </div>
 

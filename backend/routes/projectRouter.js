@@ -1,6 +1,6 @@
 import express from 'express'
 import { protect } from '../middleware/authMiddleware.js';
-import { createProject, getProjectCount, getUserProjects, getProjectById, deleteProject, getProjectTasks, getProjectStats } from '../controllers/projectController.js';
+import { createProject, getProjectCount, getUserProjects, getProjectById, deleteProject, getProjectTasks, getProjectStats, logProjectTime } from '../controllers/projectController.js';
 
 const projectRouter = express.Router();
 
@@ -22,5 +22,8 @@ projectRouter.route('/:id/tasks')
 
 projectRouter.route('/:id/stats')
     .get(getProjectStats)
+
+projectRouter.route('/:id/log-time')
+    .patch(logProjectTime)
 
 export default projectRouter;
