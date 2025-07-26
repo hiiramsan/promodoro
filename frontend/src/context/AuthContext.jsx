@@ -33,11 +33,20 @@ export function AuthProvider({ children }) {
 
     const register = async (email, username, password) => {
         const res = await axios.post(`${apiBase}/api/auth/register`, { email, username, password });
-        localStorage.setItem('token', res.data.token);        setUser(res.data);
+        localStorage.setItem('token', res.data.token);       
+        setUser(res.data);
     };
 
     const login = async (email, password) => {
         const res = await axios.post(`${apiBase}/api/auth/login`, { email, password });
+        localStorage.setItem('token', res.data.token);
+        setUser(res.data);
+    };
+
+    const googleLogin = async (credentialResponse) => {
+        const res = await axios.post(`${apiBase}/api/auth/google`, { 
+            token: credentialResponse.credential 
+        });
         localStorage.setItem('token', res.data.token);
         setUser(res.data);
     };
@@ -48,7 +57,7 @@ export function AuthProvider({ children }) {
     }
 
     return (
-        <AuthContext.Provider value={{ user, loading, register, login, logout }}>
+        <AuthContext.Provider value={{ user, loading, register, login, googleLogin, logout }}>
             {children}
         </AuthContext.Provider>
     );

@@ -13,11 +13,12 @@ import ProjectDetail from './pages/ProjectDetail.jsx'
 import { SoundProvider } from './assets/context/SoundProvider.jsx'
 import { useServerReady } from './hooks/useServerReady.js'
 import ServerLoadingScreen from './components/ServerLoadingScreen.jsx'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
-  if (loading) {    
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white">
         <div className="text-center">
@@ -99,7 +100,6 @@ const router = createBrowserRouter([
   }
 ])
 
-// App wrapper component that handles server readiness
 const AppWithServerCheck = () => {
   const { isServerReady, error, retryCount } = useServerReady();
 
@@ -118,6 +118,8 @@ const AppWithServerCheck = () => {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <AppWithServerCheck />
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || "74602566955-2cdtn4dofqu5so4u58cm56tljed9ggi0.apps.googleusercontent.com"}>
+      <AppWithServerCheck />
+    </GoogleOAuthProvider>
   </StrictMode>
 )

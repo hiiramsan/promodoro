@@ -1,6 +1,9 @@
 import jwt from 'jsonwebtoken'
 import User from '../models/User.js';
 import Preferences from '../models/Preferences.js';
+import { OAuth2Client } from 'google-auth-library';
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -121,21 +124,57 @@ export const getUserPreferences = async (req, res) => {
 
 export const updateUserPreferences = async (req, res) => {
     const { focusTime, shortBreakTime, longBreakTime, sessionsUntilLongBreak } = req.body;
-    
+
     console.log('Updating preferences for user:', req.user._id);
     console.log('Received data:', { focusTime, shortBreakTime, longBreakTime, sessionsUntilLongBreak });
-    
+
     try {
         const updated = await Preferences.findOneAndUpdate(
             { user: req.user._id },
             { focusTime, shortBreakTime, longBreakTime, sessionsUntilLongBreak },
             { new: true, upsert: true }
         );
-        
+
         console.log('Updated preferences:', updated);
         res.json(updated);
     } catch (error) {
         console.error('Error updating preferences:', error);
         res.status(500).json({ error: 'Failed to update preferences!' })
     }
+}
+
+export const googleLogin = async (req, res) => {
+    const { token } = req.body;
+
+    try {
+        const ticket = await client.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID
+        });
+
+        const payload = ticket.getPayload();
+        const { email, name, sub } = payload;
+
+        let user = await User.findOne({ email });
+        if (!user) {
+            user = await User.create({
+                email,
+                username: name,
+                password: sub
+            });
+            
+            // Create user preferences for new Google users
+            await Preferences.create({ user: user._id });
+        }
+
+        const jwtToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+            expiresIn: '7d'
+        });
+
+        res.json({ token: jwtToken, ...user.toObject() });
+    } catch (error) {
+        console.log("Error in google auth", error);
+        res.status(401).json({ message: 'Invalid google token!' })
+    }
+
 }

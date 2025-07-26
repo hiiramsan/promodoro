@@ -38,7 +38,6 @@ export const getProjectCount = async (req, res) => {
         }
 
         const count = await Project.countDocuments({ owner: req.user._id });
-        console.log('count on back: ', count);
         res.json({ count })
     } catch (error) {
         res.status(500).json({ message: 'Error getting count of projects' });
