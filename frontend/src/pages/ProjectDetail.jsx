@@ -145,7 +145,7 @@ export default function ProjectDetail() {
 
             const createdTask = response.data;
             setProjectTasks(prev => prev.map(task => task._id === tempId ? createdTask : task));
-            
+
             // Update stats
             setStats(prev => ({
                 ...prev,
@@ -180,10 +180,10 @@ export default function ProjectDetail() {
             // Update stats
             setStats(prev => ({
                 ...prev,
-                completedTasks: taskToToggle.isCompleted 
-                    ? prev.completedTasks - 1 
+                completedTasks: taskToToggle.isCompleted
+                    ? prev.completedTasks - 1
                     : prev.completedTasks + 1,
-                completionRate: prev.totalTasks > 0 
+                completionRate: prev.totalTasks > 0
                     ? Math.round(((taskToToggle.isCompleted ? prev.completedTasks - 1 : prev.completedTasks + 1) / prev.totalTasks) * 100)
                     : 0
             }));
@@ -217,8 +217,8 @@ export default function ProjectDetail() {
                 ...prev,
                 totalTasks: prev.totalTasks - completedCount,
                 completedTasks: 0,
-                completionRate: prev.totalTasks - completedCount > 0 
-                    ? Math.round((0 / (prev.totalTasks - completedCount)) * 100) 
+                completionRate: prev.totalTasks - completedCount > 0
+                    ? Math.round((0 / (prev.totalTasks - completedCount)) * 100)
                     : 0
             }));
         } catch (error) {
@@ -248,6 +248,23 @@ export default function ProjectDetail() {
             };
         }
     }, [showAddTask, newTaskName]);
+
+
+    const getTransformedTime = (timeInMinutes) => {
+        let hrs = 0;
+        let mins = 0;
+
+        if (timeInMinutes > 60) {
+            hrs = Math.floor(timeInMinutes / 60);
+            mins = Math.floor(timeInMinutes % 60);
+
+            return `${hrs} hrs and ${mins} mins`;
+
+        } else {
+            return `${timeInMinutes} mins`
+        }
+
+    }
 
     if (loading) {
         return (
@@ -369,7 +386,9 @@ export default function ProjectDetail() {
                                     <div className="text-sm text-white/60 font-inter">Completed</div>
                                 </div>
                                 <div className="backdrop-blur-md bg-white/5 border border-white/10 rounded-xl p-4">
-                                    <div className="text-2xl font-inter-bold text-white mb-1">{stats.timeSpent} min</div>
+                                    <div className="text-2xl font-inter-bold text-white mb-1">
+                                        {getTransformedTime(stats.timeSpent)}
+                                    </div>
                                     <div className="text-sm text-white/60 font-inter">Time spent</div>
                                 </div>
                             </div>
@@ -401,13 +420,13 @@ export default function ProjectDetail() {
                                     </button>
                                 )}
                             </div>
-                            
+
                             {projectTasks.length === 0 && !showAddTask && (
                                 <div className="text-center text-white/60 py-8">
                                     <p>No tasks yet. Start by adding your first task!</p>
                                 </div>
                             )}
-                            
+
                             {projectTasks.length > 0 && (
                                 <ul className="space-y-6">
                                     {projectTasks.map(task => (
@@ -450,7 +469,7 @@ export default function ProjectDetail() {
                                     </li>
                                 </ul>
                             )}
-                            
+
                             {projectTasks.length === 0 && !showAddTask && (
                                 <div className="text-center">
                                     <button
@@ -461,7 +480,7 @@ export default function ProjectDetail() {
                                     </button>
                                 </div>
                             )}
-                            
+
                             {showAddTask && (
                                 <div className="mt-6 p-4 bg-white/5 border border-white/20 rounded-xl relative">
                                     <div className="space-y-4">
