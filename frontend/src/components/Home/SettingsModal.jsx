@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-const SettingsModal = ({ 
-    isOpen, 
-    onClose, 
-    userPreferences, 
-    onPreferencesUpdate 
+const SettingsModal = ({
+    isOpen,
+    onClose,
+    userPreferences,
+    onPreferencesUpdate
 }) => {
     const [tempPreferences, setTempPreferences] = useState({
         focusTime: Math.floor(userPreferences.focusTime / 60),
         shortBreakTime: Math.floor(userPreferences.shortBreakTime / 60),
-        longBreakTime: Math.floor(userPreferences.longBreakTime / 60)
+        longBreakTime: Math.floor(userPreferences.longBreakTime / 60),
+        sessionsUntilLongBreak: userPreferences.sessionsUntilLongBreak
     });
 
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -24,15 +25,17 @@ const SettingsModal = ({
             const focusTime = tempPreferences.focusTime === '' ? 25 : parseInt(tempPreferences.focusTime);
             const shortBreakTime = tempPreferences.shortBreakTime === '' ? 5 : parseInt(tempPreferences.shortBreakTime);
             const longBreakTime = tempPreferences.longBreakTime === '' ? 15 : parseInt(tempPreferences.longBreakTime);
+            const sessionsUntilLongBreak = tempPreferences.sessionsUntilLongBreak === '' ? 4 : tempPreferences.sessionsUntilLongBreak;
 
-            const preferencesInSeconds = {
+            const preferencesTransformed = {
                 focusTime: Math.max(1, Math.min(120, focusTime)) * 60,
                 shortBreakTime: Math.max(1, Math.min(30, shortBreakTime)) * 60,
-                longBreakTime: Math.max(1, Math.min(60, longBreakTime)) * 60
+                longBreakTime: Math.max(1, Math.min(60, longBreakTime)) * 60,
+                sessionsUntilLongBreak: sessionsUntilLongBreak
             };
 
-            const response = await axios.put(`${apiBase}/api/auth/preferences`, 
-                preferencesInSeconds,
+            const response = await axios.put(`${apiBase}/api/auth/preferences`,
+                preferencesTransformed,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
@@ -47,11 +50,12 @@ const SettingsModal = ({
         setTempPreferences({
             focusTime: Math.floor(userPreferences.focusTime / 60),
             shortBreakTime: Math.floor(userPreferences.shortBreakTime / 60),
-            longBreakTime: Math.floor(userPreferences.longBreakTime / 60)
+            longBreakTime: Math.floor(userPreferences.longBreakTime / 60),
+            sessionsUntilLongBreak: userPreferences.sessionsUntilLongBreak
+
         });
     };
 
-    // Reset temp preferences when modal opens
     useEffect(() => {
         if (isOpen) {
             openModal();
@@ -169,6 +173,35 @@ const SettingsModal = ({
                             />
                             <p className="text-xs text-white/50 text-center mt-1">min</p>
                         </div>
+                    </div>
+                    <div className="flex flex-col justify-center content-center">
+                        <label className="block text-sm font-medium text-white/80 mb-2 text-center">
+                            Sessions Until Long Break
+                        </label>
+                        <input
+                            type="number"
+                            min="1"
+                            max="8"
+                            value={tempPreferences.sessionsUntilLongBreak}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === '') {
+                                    setTempPreferences(prev => ({ ...prev, sessionsUntilLongBreak: '' }));
+                                } else {
+                                    const num = parseInt(value);
+                                    if (num >= 1 && num <= 8) {
+                                        setTempPreferences(prev => ({ ...prev, sessionsUntilLongBreak: num }));
+                                    }
+                                }
+                            }}
+                            onBlur={(e) => {
+                                if (e.target.value === '' || parseInt(e.target.value) < 1) {
+                                    setTempPreferences(prev => ({ ...prev, sessionsUntilLongBreak: 4 }));
+                                }
+                            }}
+                            placeholder="4"
+                            className="w-auto px-3 py-2 rounded-lg bg-white/10 text-white text-center border border-white/20 focus:border-white/40 focus:outline-none"
+                        />
                     </div>
 
                     <div className="flex gap-3 pt-4">

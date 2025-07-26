@@ -13,6 +13,10 @@ const preferencesSchema = new mongoose.Schema({
         type: Number,
         default: 15*60
     },
+    sessionsUntilLongBreak: {
+        type:Number,
+        default:4
+    },
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

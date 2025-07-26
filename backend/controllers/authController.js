@@ -2,14 +2,12 @@ import jwt from 'jsonwebtoken'
 import User from '../models/User.js';
 import Preferences from '../models/Preferences.js';
 
-// method to genrate token w JWT
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
         expiresIn: '30d'
     });
 };
 
-// register new  user
 export const register = async (req, res) => {
     try {
 
@@ -41,7 +39,6 @@ export const register = async (req, res) => {
     }
 }
 
-// log user
 export const login = async (req, res) => {
     try {
 
@@ -100,7 +97,6 @@ export const verifyToken = async (req, res, next) => {
     }
 };
 
-// Get current user profile
 export const getMe = async (req, res) => {
     try {
         res.json({
@@ -113,7 +109,6 @@ export const getMe = async (req, res) => {
     }
 };
 
-// get current user preferences
 export const getUserPreferences = async (req, res) => {
     try {
         const preferences = await Preferences.findOne({ user: req.user._id });
@@ -125,15 +120,15 @@ export const getUserPreferences = async (req, res) => {
 }
 
 export const updateUserPreferences = async (req, res) => {
-    const { focusTime, shortBreakTime, longBreakTime } = req.body;
+    const { focusTime, shortBreakTime, longBreakTime, sessionsUntilLongBreak } = req.body;
     
     console.log('Updating preferences for user:', req.user._id);
-    console.log('Received data:', { focusTime, shortBreakTime, longBreakTime });
+    console.log('Received data:', { focusTime, shortBreakTime, longBreakTime, sessionsUntilLongBreak });
     
     try {
         const updated = await Preferences.findOneAndUpdate(
             { user: req.user._id },
-            { focusTime, shortBreakTime, longBreakTime },
+            { focusTime, shortBreakTime, longBreakTime, sessionsUntilLongBreak },
             { new: true, upsert: true }
         );
         

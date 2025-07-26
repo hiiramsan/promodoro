@@ -20,7 +20,7 @@ const Timer = () => {
     const [timeLeft, setTimeLeft] = useState(25 * 60);
     const [isActive, setIsActive] = useState(false);
     const [focusSessions, setFocusSessions] = useState(0);
-    const [sessionsUntilLongBreak] = useState(4);
+    const [sessionsUntilLongBreak, setSessionsUntilBreak] = useState(4);
     const [isExpanded, setIsExpanded] = useState(false);
     const intervalRef = useRef(null);
     const startTimeRef = useRef(null);
@@ -30,7 +30,8 @@ const Timer = () => {
     const [userPreferences, setUserPreferences] = useState({
         focusTime: 25 * 60,
         shortBreakTime: 5 * 60,
-        longBreakTime: 15 * 60
+        longBreakTime: 15 * 60,
+        sessionsUntilLongBreak: 4
     });
     const [preferencesLoaded, setPreferencesLoaded] = useState(false);
     const [showPreferencesModal, setShowPreferencesModal] = useState(false);
@@ -38,8 +39,6 @@ const Timer = () => {
     const [userTasks, setUserTasks] = useState([]);
     const productiveStartTimeRef = useRef(null);
     const [showTaskModal, setShowTaskModal] = useState(false);
-
-
 
     const fetchUserPreferences = async () => {
         try {
@@ -56,7 +55,6 @@ const Timer = () => {
 
             setUserPreferences(response.data);
 
-            // Update current timer if not active
             if (!isActive) {
                 setTimeLeft(response.data.focusTime || 25 * 60);
             }
@@ -78,15 +76,12 @@ const Timer = () => {
             );
             setUserTasks(response.data);
 
-            // Check if selected task still exists and is not completed
             if (selectedTask) {
                 const currentTask = response.data.find(task => task._id === selectedTask._id);
                 
                 if (!currentTask || currentTask.completed) {
-                    // Task was deleted or completed, stop working on it
                     await stopCurrentTask();
                 } else {
-                    // Update the selected task with latest data (in case project info changed)
                     setSelectedTask(currentTask);
                 }
             }
@@ -97,16 +92,14 @@ const Timer = () => {
 
     const handlePreferencesSubmit = async (newPreferences) => {
         setUserPreferences(newPreferences);
+        setSessionsUntilBreak(newPreferences.sessionsUntilLongBreak || 4);
 
-        // Reset timer completely with new preferences
         const wasActive = isActive;
 
-        // Stop the timer if it was running
         if (wasActive) {
             setIsActive(false);
         }
 
-        // Clear all timers and references
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
         }
@@ -152,7 +145,6 @@ const Timer = () => {
     }
 
     const stopCurrentTask = async () => {
-        // Log any remaining productive time
         if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
             const now = Date.now();
             const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
@@ -167,6 +159,10 @@ const Timer = () => {
         fetchUserPreferences();
         fetchUserTasks();
     }, [user])
+
+    useEffect(() => {
+        setSessionsUntilBreak(userPreferences.sessionsUntilLongBreak || 4);
+    }, [userPreferences.sessionsUntilLongBreak])
 
     useEffect(() => {
         const handleFocus = () => {
@@ -217,7 +213,7 @@ const Timer = () => {
         ring();
         if (currentState === TIMER_STATES.FOCUS) {
             const nextFocusSessions = focusSessions + 1;
-            if (nextFocusSessions % sessionsUntilLongBreak === 0) {
+            if (nextFocusSessions % (userPreferences.sessionsUntilLongBreak || 4) === 0) {
                 return TIMER_STATES.LONG_BREAK;
             } else {
                 return TIMER_STATES.SHORT_BREAK;
@@ -237,7 +233,6 @@ const Timer = () => {
         localStorage.removeItem('pomodoroState');
         startTimeRef.current = null;
 
-        // Clear all timers
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
         }
@@ -252,7 +247,6 @@ const Timer = () => {
     const skipToNext = async (isAutomatic = false) => {
         const nextState = getNextState();
 
-        // Log productive time if we're finishing a focus session and have a selected task with project
         if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
             const now = Date.now();
             const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
@@ -309,7 +303,6 @@ const Timer = () => {
             clearInterval(backgroundIntervalRef.current);
         }
 
-        // Animation frame for smooth UI updates (works when tab is active)
         const updateTimerFrame = () => {
             if (!isActive) return;
 
@@ -324,7 +317,6 @@ const Timer = () => {
             animationFrameRef.current = requestAnimationFrame(updateTimerFrame);
         };
 
-        // Background interval for when tab is inactive (every 200ms for better precision)
         const updateTimerInterval = () => {
             if (!isActive) return;
 
@@ -337,7 +329,6 @@ const Timer = () => {
             }
         };
 
-        // Start both timers
         animationFrameRef.current = requestAnimationFrame(updateTimerFrame);
         backgroundIntervalRef.current = setInterval(updateTimerInterval, 200);
     };
@@ -669,10 +660,10 @@ const Timer = () => {
                         <div className="flex items-center space-x-2">
                             <span className="text-sm text-white/60">Until long break:</span>
                             <div className="flex space-x-1">
-                                {[...Array(sessionsUntilLongBreak)].map((_, i) => (
+                                {[...Array(userPreferences.sessionsUntilLongBreak || 4)].map((_, i) => (
                                     <div
                                         key={i}
-                                        className={`w-3 h-3 rounded-full ${i < (focusSessions % sessionsUntilLongBreak)
+                                        className={`w-3 h-3 rounded-full ${i < (focusSessions % (userPreferences.sessionsUntilLongBreak || 4))
                                             ? 'bg-blue-500'
                                             : 'bg-white/20'
                                             }`}
@@ -680,7 +671,7 @@ const Timer = () => {
                                 ))}
                             </div>
                             <span className="text-sm font-semibold text-blue-400 ml-2">
-                                {sessionsUntilLongBreak - (focusSessions % sessionsUntilLongBreak)} left
+                                {(userPreferences.sessionsUntilLongBreak || 4) - (focusSessions % (userPreferences.sessionsUntilLongBreak || 4))} left
                             </span>
                         </div>
 
