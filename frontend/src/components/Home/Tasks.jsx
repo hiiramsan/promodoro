@@ -377,7 +377,7 @@ const Tasks = () => {
                     <div className="space-y-4">
                         <div className="relative">
                             <div
-                                className="absolute inset-0 px-3 py-2 text-lg font-inter-bold pointer-events-none whitespace-pre-wrap break-words pr-1"
+                                className="absolute inset-0 px-3 py-2 text-lg font-inter-bold pointer-events-none whitespace-pre-wrap break-words"
                                 style={{
                                     color: 'transparent',
                                     overflow: 'hidden',
@@ -397,11 +397,13 @@ const Tasks = () => {
                                             return (
                                                 <span
                                                     key={index}
-                                                    className="rounded px-1.5 py-0.5 mr-1"
+                                                    className="rounded py-0.5"
                                                     style={{
                                                         backgroundColor: bg,
                                                         display: 'inline-block',
                                                         lineHeight: '1.5',
+                                                        paddingLeft: '2px',
+                                                        paddingRight: '2px',
                                                     }}
                                                 >
                                                     {part}
