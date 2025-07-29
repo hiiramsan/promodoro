@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from '../../context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { useSounds } from '../../assets/context/SoundProvider';
@@ -17,6 +17,49 @@ const Tasks = () => {
     const { pop } = useSounds();
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+    const inputRef = useRef(null);
+    const suggestionsRef = useRef(null);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+    const [filteredProjects, setFilteredProjects] = useState([]);
+    const [selectedIndex, setSelectedIndex] = useState(0);
+
+    const handleInputChange = (e) => {
+        const value = e.target.value;
+        setNewTaskName(value);
+
+        const cursorPosition = e.target.selectionStart;
+        const textBeforeCursor = value.substring(0, cursorPosition);
+        const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+        // Check if there are any @mentions in the entire input
+        const mentions = value.match(/@\w+/g) || [];
+        const hasValidMention = mentions.some(mention => {
+            const projectName = mention.substring(1);
+            return projects.some(p => p.name.toLowerCase() === projectName.toLowerCase());
+        });
+
+        // If no valid mentions exist, clear selectedProject
+        if (!hasValidMention) {
+            setSelectedProject('');
+        }
+
+        if (lastAtIndex !== -1 && lastAtIndex < cursorPosition) {
+            const searchTerm = textBeforeCursor.substring(lastAtIndex + 1);
+            const filtered = projects.filter(p =>
+                p.name.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            setFilteredProjects(filtered);
+            setShowSuggestions(filtered.length > 0);
+            setMentionStartIndex(lastAtIndex);
+            setSelectedIndex(0);
+        } else {
+            setShowSuggestions(false);
+            setMentionStartIndex(-1);
+        }
+    };
+
+
     useEffect(() => {
         const fetchTasksAndProjects = async () => {
             try {
@@ -26,7 +69,6 @@ const Tasks = () => {
                     return;
                 }
 
-                // Fetch tasks and projects in parallel
                 const [tasksResponse, projectsResponse] = await Promise.all([
                     axios.get(`${apiBase}/api/tasks`, {
                         headers: { Authorization: `Bearer ${token}` }
@@ -68,17 +110,44 @@ const Tasks = () => {
         setNewTaskName(e.target.value);
     };
 
-
-
     const handleKeyDown = (e) => {
-        if (e.key === 'Escape') {
-            setShowAddTask(false);
-            setNewTaskName('');
-            setSelectedProject('');
-        } else if (e.key === 'Enter') {
+        // First priority: handle suggestions if they're visible
+        if (showSuggestions && filteredProjects.length > 0) {
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    setSelectedIndex(prev => (prev + 1) % filteredProjects.length);
+                    return;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    setSelectedIndex(prev => (prev - 1 + filteredProjects.length) % filteredProjects.length);
+                    return;
+                case 'Enter':
+                    e.preventDefault();
+                    selectProject(filteredProjects[selectedIndex]);
+                    return; // CRITICAL: return here to prevent any further processing
+                case 'Escape':
+                    e.preventDefault();
+                    setShowSuggestions(false);
+                    setMentionStartIndex(-1);
+                    return;
+            }
+        }
+
+        // Handle ESC to cancel task creation (when suggestions are not visible)
+        if (e.key === 'Escape' && !showSuggestions) {
+            e.preventDefault();
+            cancelAddTask(e);
+            return;
+        }
+
+        // Only handle Enter for task creation if suggestions are NOT visible
+        if (e.key === 'Enter' && !e.shiftKey && !showSuggestions) {
+            e.preventDefault();
             addTask(e);
         }
     };
+
 
     const toggleTask = async (id) => {
         const token = localStorage.getItem('token');
@@ -111,11 +180,15 @@ const Tasks = () => {
         const token = localStorage.getItem('token');
         if (!token) return;
 
+        // Remove @project mentions from the task title
+        const cleanTaskName = newTaskName.replace(/@[^\s]+/g, '').trim();
+        if (!cleanTaskName) return; // Don't create empty tasks
+
         const tempId = uuidv4();
         const selectedProjectData = selectedProject ? projects.find(p => p._id === selectedProject) : null;
         const optimisticTask = {
             id: tempId,
-            name: newTaskName.trim(),
+            name: cleanTaskName,
             completed: false,
             project: selectedProjectData,
             isTemporary: true
@@ -128,8 +201,8 @@ const Tasks = () => {
 
         try {
             const response = await axios.post(`${apiBase}/api/tasks`, {
-                title: newTaskName.trim(),
-                projectId: selectedProject || null
+                title: cleanTaskName,
+                projectId: selectedProject ? selectedProject : null
             }, {
                 headers: {
                     Authorization: `Bearer ${token}`
@@ -150,13 +223,35 @@ const Tasks = () => {
         }
     };
 
-    useEffect(() => {
-        if (showAddTask) {
-            window.addEventListener("keydown", handleKeyDown);
-            return () => {
-                window.removeEventListener("keydown", handleKeyDown);
-            };
+    const selectProject = (project) => {
+        if (mentionStartIndex !== -1 && inputRef.current) {
+            const beforeMention = newTaskName.substring(0, mentionStartIndex);
+            const afterMention = newTaskName.substring(mentionStartIndex + 1); // +1 to skip the @
+
+            // Find the end of the current @mention (space, end of string, or another @)
+            const endOfMention = afterMention.search(/[\s@]|$/);
+            const afterComplete = endOfMention !== -1 ? afterMention.substring(endOfMention) : '';
+
+            const newValue = `${beforeMention}@${project.name}${afterComplete}`;
+            setNewTaskName(newValue);
+            setSelectedProject(project._id);
+            setShowSuggestions(false);
+            setMentionStartIndex(-1);
+
+            // Set cursor position after the completed mention
+            setTimeout(() => {
+                if (inputRef.current) {
+                    const newCursorPos = beforeMention.length + project.name.length + 1; // +1 for @
+                    inputRef.current.focus();
+                    inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
+                }
+            }, 0);
         }
+    };
+
+
+    useEffect(() => {
+        // No need for window event listener since we handle keydown directly on the textarea
     }, [showAddTask, handleKeyDown, addTask]);
 
 
@@ -165,6 +260,8 @@ const Tasks = () => {
         setNewTaskName('');
         setSelectedProject('');
         setShowAddTask(false);
+        setShowSuggestions(false);
+        setMentionStartIndex(-1);
     };
 
     const handleDeleteCompletedTasks = async (e) => {
@@ -209,47 +306,55 @@ const Tasks = () => {
                 <div className="text-center text-white/60">Please log in to view your tasks.</div>
             ) : (
                 <ul className="space-y-6">
-                    {tasks.map(task => (
-                        <li key={task.id} className="flex flex-row items-center justify-between ml-2">
-                            <div className="flex flex-row items-center space-x-3 flex-1 min-w-0">
-                                <button
-                                    className={`w-6 h-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-colors cursor-pointer ${task.completed
-                                        ? "bg-green-500 border-green-500"
-                                        : "border-gray-400 bg-transparent"
-                                        }`}
-                                    aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
-                                    onClick={() => toggleTask(task.id)}
-                                >
-                                    {task.completed && (
-                                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                    )}
-                                </button>
-                                <span className={`font-inter text-base break-words ${task.completed ? "line-through text-gray-400" : ""}`}>
-                                    {task.name}
-                                </span>
-                            </div>
-                            <div className="flex space-x-2 flex-shrink-0 ml-4">
-                                {task.project && (
-                                    <span
-                                        className="px-3 py-1 rounded-full text-xs font-medium shadow-sm"
-                                        style={{
-                                            backgroundColor: getColorMapping(task.project.color).backgroundColor,
-                                            borderColor: getColorMapping(task.project.color).borderColor,
-                                            color: getColorMapping(task.project.color).color,
-                                            border: `1px solid ${getColorMapping(task.project.color).borderColor}`,
-                                        }}
+                    {tasks.map(task => {
+                        const projectColor = task.project ? getColorMapping(task.project.color) : null;
+                        return (
+                            <li
+                                key={task.id}
+                                className="flex flex-row items-center justify-between ml-2 p-2 rounded-lg transition-all duration-200"
+                            >
+                                <div className="flex flex-row items-center space-x-3 flex-1 min-w-0">
+                                    <button
+                                        className={`w-6 h-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-colors cursor-pointer ${task.completed
+                                            ? "bg-green-500 border-green-500"
+                                            : task.project
+                                                ? `border-2`
+                                                : "border-gray-400 bg-transparent"
+                                            }`}
+                                        style={task.project && !task.completed ? {
+                                            borderColor: projectColor.backgroundColor
+                                        } : {}}
+                                        aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
+                                        onClick={() => toggleTask(task.id)}
                                     >
-                                        {task.project.name}
+                                        {task.completed && (
+                                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                    <span className={`font-inter text-base break-words ${task.completed ? "line-through text-gray-400" : ""}`}>
+                                        {task.name}
                                     </span>
-                                )}
-                            </div>
-
-
-
-                        </li>
-                    ))}
+                                </div>
+                                <div className="flex space-x-2 flex-shrink-0 ml-4">
+                                    {task.project && (
+                                        <span
+                                            className="px-3 py-1 rounded-full text-xs font-medium shadow-sm"
+                                            style={{
+                                                backgroundColor: projectColor.backgroundColor,
+                                                borderColor: projectColor.borderColor,
+                                                color: projectColor.color,
+                                                border: `1px solid ${projectColor.borderColor}`,
+                                            }}
+                                        >
+                                            {task.project.name}
+                                        </span>
+                                    )}
+                                </div>
+                            </li>
+                        );
+                    })}
                     <li className="flex flex-row items-center justify-between">
                         <button
                             onClick={() => setShowAddTask(true)}
@@ -270,18 +375,92 @@ const Tasks = () => {
             {showAddTask && (
                 <div className="mt-6 p-4 bg-white/5 border border-white/20 rounded-xl relative">
                     <div className="space-y-4">
-                        <div>
-                            <input
-                                type="text"
+                        <div className="relative">
+                            <div
+                                className="absolute inset-0 px-3 py-2 text-lg font-inter-bold pointer-events-none whitespace-pre-wrap break-words pr-1"
+                                style={{
+                                    color: 'transparent',
+                                    overflow: 'hidden',
+                                    zIndex: 1
+                                }}
+                            >
+                                {newTaskName.split(/(@[^\s]+)/g).map((part, index) => {
+                                    if (part.startsWith('@')) {
+                                        const projectName = part.slice(1);
+                                        const project = projects.find(
+                                            (p) => p.name.toLowerCase() === projectName.toLowerCase()
+                                        );
+
+                                        if (project) {
+                                            const bg = getColorMapping(project.color).color;
+
+                                            return (
+                                                <span
+                                                    key={index}
+                                                    className="rounded px-1.5 py-0.5 mr-1"
+                                                    style={{
+                                                        backgroundColor: bg,
+                                                        display: 'inline-block',
+                                                        lineHeight: '1.5',
+                                                    }}
+                                                >
+                                                    {part}
+                                                </span>
+                                            );
+                                        }
+                                    }
+
+                                    return <span key={index}>{part}</span>;
+                                })}
+
+                            </div>
+                            <textarea
+                                ref={inputRef}
                                 value={newTaskName}
-                                onChange={handleTaskNameChange}
-                                placeholder="What do you need to do?"
-                                className="w-full px-3 py-2 bg-transparent border-none text-white placeholder-white/50 focus:outline-none text-lg font-inter-bold"
+                                onChange={handleInputChange}
+                                onKeyDown={handleKeyDown}
+                                placeholder="What do you need to do? Type @ for project"
+                                className="w-full min-h-[40px] px-3 py-2 bg-transparent border-none text-white placeholder-white/50 focus:outline-none text-lg font-inter-bold resize-none relative"
                                 autoFocus
+                                rows={1}
+                                style={{
+                                    overflow: 'hidden',
+                                    wordWrap: 'break-word',
+                                    zIndex: 2,
+                                    backgroundColor: 'transparent'
+                                }}
+                                onInput={(e) => {
+                                    e.target.style.height = 'auto';
+                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                }}
                             />
+                            {showSuggestions && (
+                                <div
+                                    ref={suggestionsRef}
+                                    className="absolute top-full left-3 right-3 mt-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-md shadow-lg z-50 max-h-48 overflow-y-auto"
+                                >
+                                    {filteredProjects.map((project, index) => (
+                                        <div
+                                            key={project._id}
+                                            className={`p-3 cursor-pointer hover:bg-white/20 transition-colors duration-200 ${index === selectedIndex ? 'bg-white/20' : ''
+                                                }`}
+                                            onClick={() => selectProject(project)}
+                                        >
+                                            <div className="flex items-center space-x-2">
+                                                <div
+                                                    className="w-3 h-3 rounded-full"
+                                                    style={{ backgroundColor: getColorMapping(project.color).backgroundColor }}
+                                                />
+                                                <span className="text-sm text-white">{project.name}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
-                        <div>
+                        {/* Old project selector */}
+                        {/* <div>
                             <div className="mb-2 m-3">
                                 <span className="text-white/70 text-sm font-medium">Project (optional)</span>
                             </div>
@@ -316,7 +495,7 @@ const Tasks = () => {
                                     </button>
                                 ))}
                             </div>
-                        </div>
+                        </div> */}
 
                         <div className="flex justify-end items-center space-x-4 pt-2">
                             <button
