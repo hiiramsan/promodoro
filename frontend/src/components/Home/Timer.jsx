@@ -26,6 +26,7 @@ const Timer = () => {
     const startTimeRef = useRef(null);
     const animationFrameRef = useRef(null);
     const backgroundIntervalRef = useRef(null);
+    const isTransitioning = useRef(false);
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const [userPreferences, setUserPreferences] = useState({
         focusTime: 25 * 60,
@@ -148,7 +149,15 @@ const Timer = () => {
         if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
             const now = Date.now();
             const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
-            await logTimeToProject(productiveTime);
+            // Only log if at least 5 seconds of productive time
+            if (productiveTime >= 5) {
+                try {
+                    await logTimeToProject(productiveTime);
+                    console.log(`Successfully logged ${productiveTime} seconds to project (stop task)`);
+                } catch (error) {
+                    console.error('Failed to log time to project on stop task:', error);
+                }
+            }
         }
         
         setSelectedTask(null);
@@ -223,7 +232,22 @@ const Timer = () => {
         }
     };
 
-    const switchToState = (newState) => {
+    const switchToState = async (newState) => {
+        // Log time for current focus session before switching
+        if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
+            const now = Date.now();
+            const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
+            // Only log if at least 5 seconds of productive time
+            if (productiveTime >= 5) {
+                try {
+                    await logTimeToProject(productiveTime);
+                    console.log(`Successfully logged ${productiveTime} seconds to project (manual switch)`);
+                } catch (error) {
+                    console.error('Failed to log time to project on manual switch:', error);
+                }
+            }
+        }
+
         pop();
         setIsActive(false);
         setCurrentState(newState);
@@ -232,6 +256,7 @@ const Timer = () => {
         localStorage.removeItem('pomodoroTimeLeft');
         localStorage.removeItem('pomodoroState');
         startTimeRef.current = null;
+        productiveStartTimeRef.current = null; // Reset productive time tracking
 
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
@@ -245,18 +270,10 @@ const Timer = () => {
     };
 
     const skipToNext = async (isAutomatic = false) => {
-        const nextState = getNextState();
+        if (isTransitioning.current) return;
+        isTransitioning.current = true;
 
-        if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
-            const now = Date.now();
-            const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
-            await logTimeToProject(productiveTime);
-            productiveStartTimeRef.current = null;
-        }
-
-        if (currentState === TIMER_STATES.FOCUS) {
-            setFocusSessions(prev => prev + 1);
-        }
+        // Clear all timers first to prevent multiple calls
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
         }
@@ -265,6 +282,28 @@ const Timer = () => {
         }
         if (backgroundIntervalRef.current) {
             clearInterval(backgroundIntervalRef.current);
+        }
+
+        const nextState = getNextState();
+
+        // Log time for completed focus session with safeguards
+        if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
+            const now = Date.now();
+            const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
+            // Only log if at least 10 seconds of productive time
+            if (productiveTime >= 10) {
+                try {
+                    await logTimeToProject(productiveTime);
+                    console.log(`Successfully logged ${productiveTime} seconds to project`);
+                } catch (error) {
+                    console.error('Failed to log time to project:', error);
+                }
+            }
+            productiveStartTimeRef.current = null;
+        }
+
+        if (currentState === TIMER_STATES.FOCUS) {
+            setFocusSessions(prev => prev + 1);
         }
 
         setCurrentState(nextState);
@@ -279,8 +318,16 @@ const Timer = () => {
 
         if (isAutomatic) {
             startTimeRef.current = Date.now();
+            // Start productive time tracking for new focus sessions
+            if (nextState === TIMER_STATES.FOCUS && selectedTask?.project) {
+                productiveStartTimeRef.current = Date.now();
+            }
             setupTimersForState(nextState);
         }
+        
+        setTimeout(() => {
+            isTransitioning.current = false;
+        }, 100); // Reduced timeout for faster state changes
     };
 
     const calculateTimeLeft = (forState = null) => {
@@ -304,12 +351,12 @@ const Timer = () => {
         }
 
         const updateTimerFrame = () => {
-            if (!isActive) return;
+            if (!isActive || isTransitioning.current) return;
 
             const newTimeLeft = calculateTimeLeft(stateToUse);
             setTimeLeft(newTimeLeft);
 
-            if (newTimeLeft === 0) {
+            if (newTimeLeft === 0 && !isTransitioning.current) {
                 skipToNext(true);
                 return;
             }
@@ -318,12 +365,12 @@ const Timer = () => {
         };
 
         const updateTimerInterval = () => {
-            if (!isActive) return;
+            if (!isActive || isTransitioning.current) return;
 
             const newTimeLeft = calculateTimeLeft(stateToUse);
             setTimeLeft(newTimeLeft);
 
-            if (newTimeLeft === 0) {
+            if (newTimeLeft === 0 && !isTransitioning.current) {
                 skipToNext(true);
                 return;
             }
@@ -346,14 +393,14 @@ const Timer = () => {
                 }
             } else {
                 // Tab became active - restart animation frame
-                if (isActive) {
+                if (isActive && !isTransitioning.current) {
                     const updateTimerFrame = () => {
-                        if (!isActive) return;
+                        if (!isActive || isTransitioning.current) return;
 
                         const newTimeLeft = calculateTimeLeft();
                         setTimeLeft(newTimeLeft);
 
-                        if (newTimeLeft === 0) {
+                        if (newTimeLeft === 0 && !isTransitioning.current) {
                             skipToNext(true);
                             return;
                         }
@@ -460,19 +507,25 @@ const Timer = () => {
                 startTimeRef.current = Date.now() - (duration - timeLeft) * 1000;
             }
             
-            // Start productive time tracking if we're in focus mode and have a task with project
             if (currentState === TIMER_STATES.FOCUS && selectedTask?.project) {
                 productiveStartTimeRef.current = Date.now();
             }
             
             start();
         } else {
-            // Log productive time when pausing during focus session
             if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
                 const now = Date.now();
                 const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
-                await logTimeToProject(productiveTime);
-                productiveStartTimeRef.current = null;
+                // Only log if at least 5 seconds of productive time
+                if (productiveTime >= 5) {
+                    try {
+                        await logTimeToProject(productiveTime);
+                        console.log(`Successfully logged ${productiveTime} seconds to project (pause)`);
+                    } catch (error) {
+                        console.error('Failed to log time to project on pause:', error);
+                    }
+                }
+                productiveStartTimeRef.current = null; 
             }
             
             pause();
@@ -538,19 +591,37 @@ const Timer = () => {
     }, [timeLeft, currentState]);
 
     const logTimeToProject = async (seconds) => {
-        if (!selectedTask?.project?._id || !user) return;
+        if (!selectedTask?.project?._id || !user || seconds <= 0) {
+            console.log('Skipping time log - invalid conditions:', {
+                hasProject: !!selectedTask?.project?._id,
+                hasUser: !!user,
+                seconds
+            });
+            return;
+        }
 
         const token = localStorage.getItem('token');
+        if (!token) {
+            console.error('No authentication token available');
+            return;
+        }
 
         try {
-            await axios.patch(`${apiBase}/api/projects/${selectedTask.project._id}/log-time`, {
+            const response = await axios.patch(`${apiBase}/api/projects/${selectedTask.project._id}/log-time`, {
                 timeSpent: seconds
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            console.log(`Logged ${seconds} to project`)
+            
+            console.log(`Successfully logged ${seconds} seconds to project ${selectedTask.project.name}`, response.data);
+            return response.data;
         } catch (error) {
-            console.log('failed to add seconds to project, maybe bcuz of the id of the project lol!!!')
+            console.error('Failed to log time to project:', {
+                projectId: selectedTask.project._id,
+                seconds,
+                error: error.response?.data || error.message
+            });
+            throw error;
         }
     }
 
@@ -731,6 +802,7 @@ const Timer = () => {
                 isOpen={showTaskModal}
                 onClose={() => setShowTaskModal(false)}
                 onSelect={async (task) => {
+                    // Log time for previous task if switching tasks during focus
                     if (
                         currentState === TIMER_STATES.FOCUS &&
                         isActive &&
@@ -739,12 +811,21 @@ const Timer = () => {
                     ) {
                         const now = Date.now();
                         const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
-                        await logTimeToProject(productiveTime);
+                        // Only log if at least 5 seconds of productive time
+                        if (productiveTime >= 5) {
+                            try {
+                                await logTimeToProject(productiveTime);
+                                console.log(`Successfully logged ${productiveTime} seconds to project (task switch)`);
+                            } catch (error) {
+                                console.error('Failed to log time to project on task switch:', error);
+                            }
+                        }
                     }
 
+                    // Set new task
                     setSelectedTask(task);
-                    
-                    // Start tracking for new task if we're in active focus mode
+
+                    // Start tracking time for new task if in active focus session
                     if (currentState === TIMER_STATES.FOCUS && isActive && task?.project) {
                         productiveStartTimeRef.current = Date.now();
                     } else {

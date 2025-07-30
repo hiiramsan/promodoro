@@ -32,14 +32,17 @@ const Tasks = () => {
         const textBeforeCursor = value.substring(0, cursorPosition);
         const lastAtIndex = textBeforeCursor.lastIndexOf('@');
 
-        // Check if there are any @mentions in the entire input
-        const mentions = value.match(/@\w+/g) || [];
+        const mentions = value.match(/@"[^"]*"|@[^\s@]+/g) || [];
         const hasValidMention = mentions.some(mention => {
-            const projectName = mention.substring(1);
+            let projectName;
+            if (mention.startsWith('@"') && mention.endsWith('"')) {
+                projectName = mention.slice(2, -1);
+            } else {
+                projectName = mention.substring(1); 
+            }
             return projects.some(p => p.name.toLowerCase() === projectName.toLowerCase());
         });
 
-        // If no valid mentions exist, clear selectedProject
         if (!hasValidMention) {
             setSelectedProject('');
         }
@@ -111,7 +114,6 @@ const Tasks = () => {
     };
 
     const handleKeyDown = (e) => {
-        // First priority: handle suggestions if they're visible
         if (showSuggestions && filteredProjects.length > 0) {
             switch (e.key) {
                 case 'ArrowDown':
@@ -181,7 +183,7 @@ const Tasks = () => {
         if (!token) return;
 
         // Remove @project mentions from the task title
-        const cleanTaskName = newTaskName.replace(/@[^\s]+/g, '').trim();
+        const cleanTaskName = newTaskName.replace(/@"[^"]*"|@[^\s@]+/g, '').trim();
         if (!cleanTaskName) return; // Don't create empty tasks
 
         const tempId = uuidv4();
@@ -226,22 +228,20 @@ const Tasks = () => {
     const selectProject = (project) => {
         if (mentionStartIndex !== -1 && inputRef.current) {
             const beforeMention = newTaskName.substring(0, mentionStartIndex);
-            const afterMention = newTaskName.substring(mentionStartIndex + 1); // +1 to skip the @
+            const afterMention = newTaskName.substring(mentionStartIndex + 1);
 
-            // Find the end of the current @mention (space, end of string, or another @)
-            const endOfMention = afterMention.search(/[\s@]|$/);
+            const endOfMention = afterMention.search(/\s|@|$/);
             const afterComplete = endOfMention !== -1 ? afterMention.substring(endOfMention) : '';
 
-            const newValue = `${beforeMention}@${project.name}${afterComplete}`;
+            const newValue = `${beforeMention}@"${project.name}"  ${afterComplete}`;
             setNewTaskName(newValue);
             setSelectedProject(project._id);
             setShowSuggestions(false);
             setMentionStartIndex(-1);
 
-            // Set cursor position after the completed mention
             setTimeout(() => {
                 if (inputRef.current) {
-                    const newCursorPos = beforeMention.length + project.name.length + 1; // +1 for @
+                    const newCursorPos = beforeMention.length + project.name.length + 7;
                     inputRef.current.focus();
                     inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
                 }
@@ -384,9 +384,14 @@ const Tasks = () => {
                                     zIndex: 1
                                 }}
                             >
-                                {newTaskName.split(/(@[^\s]+)/g).map((part, index) => {
+                                {newTaskName.split(/(@"[^"]*"|@[^\s@]+)/g).map((part, index) => {
                                     if (part.startsWith('@')) {
-                                        const projectName = part.slice(1);
+                                        let projectName;
+                                        if (part.startsWith('@"') && part.endsWith('"')) {
+                                            projectName = part.slice(2, -1); // Remove @" and "
+                                        } else {
+                                            projectName = part.slice(1); // Remove @
+                                        }
                                         const project = projects.find(
                                             (p) => p.name.toLowerCase() === projectName.toLowerCase()
                                         );
