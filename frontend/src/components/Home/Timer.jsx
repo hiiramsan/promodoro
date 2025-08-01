@@ -167,6 +167,10 @@ const Timer = () => {
     useEffect(() => {
         fetchUserPreferences();
         fetchUserTasks();
+        // Test the state transition logic on load
+        if (import.meta.env.DEV) {
+            setTimeout(() => testStateTransitions(), 1000);
+        }
     }, [user])
 
     useEffect(() => {
@@ -218,16 +222,37 @@ const Timer = () => {
         }
     };
 
+    // Test function to verify state transition logic (can be removed in production)
+    const testStateTransitions = () => {
+        console.log("=== TESTING STATE TRANSITIONS ===");
+        const sessionsUntilLong = userPreferences.sessionsUntilLongBreak || 4;
+        
+        for (let sessions = 0; sessions < 8; sessions++) {
+            const nextSession = sessions + 1;
+            const shouldBeLongBreak = nextSession % sessionsUntilLong === 0;
+            console.log(`After ${sessions} completed sessions -> Session ${nextSession} -> ${shouldBeLongBreak ? 'LONG BREAK' : 'SHORT BREAK'}`);
+        }
+        console.log("=== END TEST ===");
+    };
+
     const getNextState = () => {
         ring();
         if (currentState === TIMER_STATES.FOCUS) {
-            const nextFocusSessions = focusSessions + 1;
-            if (nextFocusSessions % (userPreferences.sessionsUntilLongBreak || 4) === 0) {
+            // Calculate what the focus sessions will be AFTER this session completes
+            const completedSessions = focusSessions + 1;
+            const sessionsUntilLong = userPreferences.sessionsUntilLongBreak || 4;
+            
+            console.log(`Current focus sessions: ${focusSessions}, After completion: ${completedSessions}, Sessions until long break: ${sessionsUntilLong}`);
+            
+            if (completedSessions % sessionsUntilLong === 0) {
+                console.log(`Time for long break! (${completedSessions} sessions completed)`);
                 return TIMER_STATES.LONG_BREAK;
             } else {
+                console.log(`Time for short break (${completedSessions} sessions completed, ${sessionsUntilLong - (completedSessions % sessionsUntilLong)} until long break)`);
                 return TIMER_STATES.SHORT_BREAK;
             }
         } else {
+            console.log(`Break finished, returning to focus`);
             return TIMER_STATES.FOCUS;
         }
     };
@@ -284,8 +309,6 @@ const Timer = () => {
             clearInterval(backgroundIntervalRef.current);
         }
 
-        const nextState = getNextState();
-
         // Log time for completed focus session with safeguards
         if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
             const now = Date.now();
@@ -302,8 +325,16 @@ const Timer = () => {
             productiveStartTimeRef.current = null;
         }
 
+        // Determine next state BEFORE incrementing sessions
+        const nextState = getNextState();
+
+        // Increment focus sessions counter AFTER determining next state
         if (currentState === TIMER_STATES.FOCUS) {
-            setFocusSessions(prev => prev + 1);
+            setFocusSessions(prev => {
+                const newCount = prev + 1;
+                console.log(`Completed focus session ${newCount}, next state: ${nextState}`);
+                return newCount;
+            });
         }
 
         setCurrentState(nextState);
