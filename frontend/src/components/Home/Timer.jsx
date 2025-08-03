@@ -253,21 +253,7 @@ const Timer = () => {
 };
 
     const switchToState = async (newState) => {
-        // Log time for current focus session before switching
-        if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
-            const now = Date.now();
-            const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
-            // Only log if at least 5 seconds of productive time
-            if (productiveTime >= 5) {
-                try {
-                    await logTimeToProject(productiveTime);
-                    console.log(`Successfully logged ${productiveTime} seconds to project (manual switch)`);
-                } catch (error) {
-                    console.error('Failed to log time to project on manual switch:', error);
-                }
-            }
-        }
-
+        await logAndResetProductiveTime('manual switch');
         pop();
         setIsActive(false);
         setCurrentState(newState);
@@ -303,21 +289,7 @@ const Timer = () => {
             clearInterval(backgroundIntervalRef.current);
         }
 
-        // Log time for completed focus session with safeguards
-        if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
-            const now = Date.now();
-            const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
-            // Only log if at least 10 seconds of productive time
-            if (productiveTime >= 10) {
-                try {
-                    await logTimeToProject(productiveTime);
-                    console.log(`Successfully logged ${productiveTime} seconds to project`);
-                } catch (error) {
-                    console.error('Failed to log time to project:', error);
-                }
-            }
-            productiveStartTimeRef.current = null;
-        }
+        await logAndResetProductiveTime('skip');
 
         let updatedFocusSessions = focusSessions;
 
@@ -535,21 +507,7 @@ const Timer = () => {
 
             start();
         } else {
-            if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
-                const now = Date.now();
-                const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
-                // Only log if at least 5 seconds of productive time
-                if (productiveTime >= 5) {
-                    try {
-                        await logTimeToProject(productiveTime);
-                        console.log(`Successfully logged ${productiveTime} seconds to project (pause)`);
-                    } catch (error) {
-                        console.error('Failed to log time to project on pause:', error);
-                    }
-                }
-                productiveStartTimeRef.current = null;
-            }
-
+            await logAndResetProductiveTime('pause');
             pause();
         }
         setIsActive(!isActive);
@@ -845,25 +803,8 @@ const Timer = () => {
                 isOpen={showTaskModal}
                 onClose={() => setShowTaskModal(false)}
                 onSelect={async (task) => {
-                    // Log time for previous task if switching tasks during focus
-                    if (
-                        currentState === TIMER_STATES.FOCUS &&
-                        isActive &&
-                        selectedTask?.project &&
-                        productiveStartTimeRef.current
-                    ) {
-                        const now = Date.now();
-                        const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
-                        // Only log if at least 5 seconds of productive time
-                        if (productiveTime >= 5) {
-                            try {
-                                await logTimeToProject(productiveTime);
-                                console.log(`Successfully logged ${productiveTime} seconds to project (task switch)`);
-                            } catch (error) {
-                                console.error('Failed to log time to project on task switch:', error);
-                            }
-                        }
-                    }
+                
+                    await logAndResetProductiveTime('task switch');
 
                     // Set new task
                     setSelectedTask(task);
