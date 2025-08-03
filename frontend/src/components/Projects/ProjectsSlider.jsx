@@ -13,6 +13,7 @@ export default function ProjectsSlider() {
     const [showAddProject, setShowAddProject] = useState(false);
     const [newProjectName, setNewProjectName] = useState('');
     const [newProjectColor, setNewProjectColor] = useState('blue');
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
     const predefinedColors = [
@@ -151,11 +152,26 @@ export default function ProjectsSlider() {
     }
 
     return (
-        <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg p-8 w-full">
-            <div className="flex justify-between items-center mb-8">
+        <div className={`backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg w-full transition-all duration-300 ease-in-out ${isCollapsed ? 'p-6' : 'p-8'}`}>
+            <div className={`flex justify-between items-center transition-all duration-300 ease-in-out ${isCollapsed ? 'mb-0' : 'mb-8'}`}>
                 <h2 className="text-xl font-inter-bold">My Projects</h2>
                 <div className="flex items-center space-x-3">
-                    {totalSlides > 1 && (
+                    <button
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                        title={isCollapsed ? "Expand projects" : "Collapse projects"}
+                    >
+                        <svg 
+                            className={`w-4 h-4 text-white transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`} 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth={2} 
+                            viewBox="0 0 24 24"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                        </svg>
+                    </button>
+                    {!isCollapsed && totalSlides > 1 && (
                         <div className="flex items-center space-x-2">
                             <button
                                 onClick={prevSlide}
@@ -181,7 +197,7 @@ export default function ProjectsSlider() {
                 </div>
             </div>
 
-            <div className="overflow-hidden">
+            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isCollapsed ? 'max-h-0 opacity-0' : 'max-h-[1000px] opacity-100'}`}>
                 <div 
                     className="flex transition-transform duration-300 ease-in-out"
                     style={{ transform: `translateX(-${currentSlide * 100}%)` }}
@@ -201,12 +217,12 @@ export default function ProjectsSlider() {
                     ) : (
                         Array.from({ length: totalSlides }, (_, slideIndex) => (
                             <div key={slideIndex} className="w-full flex-shrink-0">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="flex flex-col gap-4">
                                     {projects.slice(slideIndex * itemsPerSlide, (slideIndex + 1) * itemsPerSlide).map(project => (
                                         <div
                                             key={project.id}
                                             onClick={() => navigate(`/projects/${project.id}`)}
-                                            className="group relative backdrop-blur-md bg-white/5 border border-white/10 rounded-xl shadow-lg p-6 hover:bg-white/10 transition-all duration-200 cursor-pointer"
+                                            className="group relative backdrop-blur-md bg-white/5 border border-white/10 rounded-xl shadow-lg p-6 hover:bg-white/10 transition-all duration-200 cursor-pointer w-full"
                                         >
                                             <div className="flex items-center justify-between mb-4">
                                                 <div
@@ -234,19 +250,14 @@ export default function ProjectsSlider() {
                                     {slideIndex === totalSlides - 1 && (
                                         <div
                                             onClick={() => setShowAddProject(true)}
-                                            className="group backdrop-blur-md bg-white/5 border-2 border-dashed border-white/20 rounded-xl shadow-lg p-6 hover:bg-white/10 hover:border-white/30 transition-all duration-200 cursor-pointer flex flex-col items-center justify-center text-center"
+                                            className="group backdrop-blur-md bg-white/5 border-2 border-dashed border-white/20 rounded-xl shadow-lg p-4 hover:bg-white/10 hover:border-white/30 transition-all duration-200 cursor-pointer flex items-center justify-center w-full h-16"
+                                            title="Add Project"
                                         >
-                                            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-4 group-hover:bg-white/20 transition-colors">
-                                                <svg className="w-6 h-6 text-white/60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                                                <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                                                 </svg>
                                             </div>
-                                            <h3 className="text-lg font-inter-bold text-white/80 mb-2">
-                                                Add Project
-                                            </h3>
-                                            <p className="text-sm text-white/50 font-inter">
-                                                Create a new project
-                                            </p>
                                         </div>
                                     )}
                                 </div>

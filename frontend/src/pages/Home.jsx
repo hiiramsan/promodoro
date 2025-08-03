@@ -2,7 +2,7 @@ import Silk from '../components/Silk';
 import Timer from '../components/Home/Timer';
 import Navbar from '../components/Navbar';
 import Tasks from '../components/Home/Tasks';
-import Projects from '../components/Home/Projects';
+import ProjectsSlider from '../components/Projects/ProjectsSlider';
 
 const Home = () => {
     return (
@@ -23,7 +23,7 @@ const Home = () => {
                     <div className="flex justify-between items-start gap-8">
                         <div className="flex flex-col w-full space-y-8">
                             <Tasks />
-                            <Projects />
+                            <ProjectsSlider />
                         </div>
                         <Timer />
                     </div>

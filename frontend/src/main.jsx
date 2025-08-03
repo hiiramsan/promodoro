@@ -8,7 +8,6 @@ import Home from './pages/Home.jsx'
 import SignUp from './pages/SignUp.jsx'
 import Login from './pages/Login.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
-import ProjectsPage from './pages/ProjectsPage.jsx'
 import ProjectDetail from './pages/ProjectDetail.jsx'
 import { SoundProvider } from './assets/context/SoundProvider.jsx'
 import { useServerReady } from './hooks/useServerReady.js'
@@ -63,14 +62,6 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <Home />
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: '/projects',
-    element: (
-      <ProtectedRoute>
-        <ProjectsPage />
       </ProtectedRoute>
     )
   },

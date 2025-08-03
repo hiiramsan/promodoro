@@ -14,6 +14,7 @@ const Tasks = () => {
     const [selectedProject, setSelectedProject] = useState('');
     const [loading, setLoading] = useState(true);
     const [tasksCompleted, setTasksCompleted] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const { pop } = useSounds();
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -288,23 +289,41 @@ const Tasks = () => {
     };
 
     return (
-        <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg p-8 max-w-2xl min-w-[350px] w-full">
-            <div className="flex justify-between items-center mb-8">
+        <div className={`backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl shadow-lg max-w-2xl min-w-[350px] w-full transition-all duration-300 ease-in-out ${isCollapsed ? 'p-6' : 'p-8'}`}>
+            <div className={`flex justify-between items-center transition-all duration-300 ease-in-out ${isCollapsed ? 'mb-0' : 'mb-8'}`}>
                 <h2 className="text-xl font-inter-bold">Tasks</h2>
-                {tasksCompleted && (
+                <div className="flex items-center space-x-3">
                     <button
-                        onClick={handleDeleteCompletedTasks}
-                        className="text-sm text-white/40 hover:text-white/60 transition-colors duration-200 cursor-pointer underline"
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                        title={isCollapsed ? "Expand tasks" : "Collapse tasks"}
                     >
-                        Clear completed
+                        <svg 
+                            className={`w-4 h-4 text-white transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`} 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth={2} 
+                            viewBox="0 0 24 24"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                        </svg>
                     </button>
-                )}
+                    {!isCollapsed && tasksCompleted && (
+                        <button
+                            onClick={handleDeleteCompletedTasks}
+                            className="text-sm text-white/40 hover:text-white/60 transition-colors duration-200 cursor-pointer underline"
+                        >
+                            Clear completed
+                        </button>
+                    )}
+                </div>
             </div>
-            {loading ? (
-                <div className="text-center text-white/60">Loading tasks...</div>
-            ) : !user ? (
-                <div className="text-center text-white/60">Please log in to view your tasks.</div>
-            ) : (
+            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isCollapsed ? 'max-h-0 opacity-0' : 'max-h-[1000px] opacity-100'}`}>
+                {loading ? (
+                    <div className="text-center text-white/60">Loading tasks...</div>
+                ) : !user ? (
+                    <div className="text-center text-white/60">Please log in to view your tasks.</div>
+                ) : (
                 <ul className="space-y-6">
                     {tasks.map(task => {
                         const projectColor = task.project ? getColorMapping(task.project.color) : null;
@@ -529,6 +548,7 @@ const Tasks = () => {
                     </div>
                 </div>
             )}
+            </div>
         </div>
     )
 }
