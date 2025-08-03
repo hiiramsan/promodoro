@@ -40,6 +40,8 @@ const Timer = () => {
     const [userTasks, setUserTasks] = useState([]);
     const productiveStartTimeRef = useRef(null);
     const [showTaskModal, setShowTaskModal] = useState(false);
+    const PRODUCTIVE_TIME_THRESHOLD = 5;
+
 
     const fetchUserPreferences = async () => {
         try {
@@ -79,7 +81,7 @@ const Timer = () => {
 
             if (selectedTask) {
                 const currentTask = response.data.find(task => task._id === selectedTask._id);
-                
+
                 if (!currentTask || currentTask.completed) {
                     await stopCurrentTask();
                 } else {
@@ -159,7 +161,7 @@ const Timer = () => {
                 }
             }
         }
-        
+
         setSelectedTask(null);
         productiveStartTimeRef.current = null;
     }
@@ -204,7 +206,7 @@ const Timer = () => {
 
         const checkTaskStatus = setInterval(() => {
             fetchUserTasks();
-        }, 30000); 
+        }, 30000);
 
         return () => clearInterval(checkTaskStatus);
     }, [selectedTask, user])
@@ -222,11 +224,10 @@ const Timer = () => {
         }
     };
 
-    // Test function to verify state transition logic (can be removed in production)
     const testStateTransitions = () => {
         console.log("=== TESTING STATE TRANSITIONS ===");
         const sessionsUntilLong = userPreferences.sessionsUntilLongBreak || 4;
-        
+
         for (let sessions = 0; sessions < 8; sessions++) {
             const nextSession = sessions + 1;
             const shouldBeLongBreak = nextSession % sessionsUntilLong === 0;
@@ -235,27 +236,21 @@ const Timer = () => {
         console.log("=== END TEST ===");
     };
 
-    const getNextState = () => {
-        ring();
-        if (currentState === TIMER_STATES.FOCUS) {
-            // Calculate what the focus sessions will be AFTER this session completes
-            const completedSessions = focusSessions + 1;
-            const sessionsUntilLong = userPreferences.sessionsUntilLongBreak || 4;
-            
-            console.log(`Current focus sessions: ${focusSessions}, After completion: ${completedSessions}, Sessions until long break: ${sessionsUntilLong}`);
-            
-            if (completedSessions % sessionsUntilLong === 0) {
-                console.log(`Time for long break! (${completedSessions} sessions completed)`);
-                return TIMER_STATES.LONG_BREAK;
-            } else {
-                console.log(`Time for short break (${completedSessions} sessions completed, ${sessionsUntilLong - (completedSessions % sessionsUntilLong)} until long break)`);
-                return TIMER_STATES.SHORT_BREAK;
-            }
+    const getNextState = (updatedFocusCount = focusSessions) => {
+    ring();
+    if (currentState === TIMER_STATES.FOCUS) {
+        const completedSessions = updatedFocusCount;
+        const sessionsUntilLong = userPreferences.sessionsUntilLongBreak || 4;
+
+        if (completedSessions % sessionsUntilLong === 0) {
+            return TIMER_STATES.LONG_BREAK;
         } else {
-            console.log(`Break finished, returning to focus`);
-            return TIMER_STATES.FOCUS;
+            return TIMER_STATES.SHORT_BREAK;
         }
-    };
+    } else {
+        return TIMER_STATES.FOCUS;
+    }
+};
 
     const switchToState = async (newState) => {
         // Log time for current focus session before switching
@@ -298,7 +293,6 @@ const Timer = () => {
         if (isTransitioning.current) return;
         isTransitioning.current = true;
 
-        // Clear all timers first to prevent multiple calls
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
         }
@@ -325,17 +319,14 @@ const Timer = () => {
             productiveStartTimeRef.current = null;
         }
 
-        // Determine next state BEFORE incrementing sessions
-        const nextState = getNextState();
+        let updatedFocusSessions = focusSessions;
 
-        // Increment focus sessions counter AFTER determining next state
         if (currentState === TIMER_STATES.FOCUS) {
-            setFocusSessions(prev => {
-                const newCount = prev + 1;
-                console.log(`Completed focus session ${newCount}, next state: ${nextState}`);
-                return newCount;
-            });
+            updatedFocusSessions += 1;
+            setFocusSessions(updatedFocusSessions);
         }
+
+        const nextState = getNextState(updatedFocusSessions);
 
         setCurrentState(nextState);
         setTimeLeft(getStateDuration(nextState));
@@ -355,7 +346,7 @@ const Timer = () => {
             }
             setupTimersForState(nextState);
         }
-        
+
         setTimeout(() => {
             isTransitioning.current = false;
         }, 100); // Reduced timeout for faster state changes
@@ -537,11 +528,11 @@ const Timer = () => {
                 const duration = getStateDuration(currentState);
                 startTimeRef.current = Date.now() - (duration - timeLeft) * 1000;
             }
-            
+
             if (currentState === TIMER_STATES.FOCUS && selectedTask?.project) {
                 productiveStartTimeRef.current = Date.now();
             }
-            
+
             start();
         } else {
             if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
@@ -556,9 +547,9 @@ const Timer = () => {
                         console.error('Failed to log time to project on pause:', error);
                     }
                 }
-                productiveStartTimeRef.current = null; 
+                productiveStartTimeRef.current = null;
             }
-            
+
             pause();
         }
         setIsActive(!isActive);
@@ -643,7 +634,7 @@ const Timer = () => {
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            
+
             console.log(`Successfully logged ${seconds} seconds to project ${selectedTask.project.name}`, response.data);
             return response.data;
         } catch (error) {
@@ -655,6 +646,27 @@ const Timer = () => {
             throw error;
         }
     }
+
+    const logAndResetProductiveTime = async (context = 'unspecified') => {
+    if (
+        currentState === TIMER_STATES.FOCUS &&
+        selectedTask?.project &&
+        productiveStartTimeRef.current
+    ) {
+        const now = Date.now();
+        const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
+        if (productiveTime >= PRODUCTIVE_TIME_THRESHOLD) {
+            try {
+                await logTimeToProject(productiveTime);
+                console.log(`Logged ${productiveTime}s of focus time [${context}]`);
+            } catch (error) {
+                console.error(`Error logging time [${context}]:`, error);
+            }
+        }
+        productiveStartTimeRef.current = null;
+    }
+};
+
 
     return (
         <>
@@ -800,7 +812,7 @@ const Timer = () => {
                                                 ? `Working on ${selectedTask.title}${selectedTask.project ? ` (${selectedTask.project.name})` : ''}`
                                                 : "I'm currently working on..."}
                                         </button>
-                                        
+
                                         {selectedTask && (
                                             <button
                                                 onClick={stopCurrentTask}
