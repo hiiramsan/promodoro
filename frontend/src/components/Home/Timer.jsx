@@ -6,28 +6,28 @@ import axios from "axios";
 import TaskModal from "./TaskModal";
 
 const Timer = () => {
-
     const { start, pause, pop, ring } = useSounds();
-
+    const { user } = useAuth();
+    
     const TIMER_STATES = {
         FOCUS: 'focus',
         SHORT_BREAK: 'short_break',
         LONG_BREAK: 'long_break'
     };
 
-    const { user } = useAuth();
+    // Core state
     const [currentState, setCurrentState] = useState(TIMER_STATES.FOCUS);
     const [timeLeft, setTimeLeft] = useState(25 * 60);
     const [isActive, setIsActive] = useState(false);
     const [focusSessions, setFocusSessions] = useState(0);
-    const [sessionsUntilLongBreak, setSessionsUntilBreak] = useState(4);
     const [isExpanded, setIsExpanded] = useState(false);
-    const intervalRef = useRef(null);
+    
+    // Single timer reference
+    const timerRef = useRef(null);
     const startTimeRef = useRef(null);
-    const animationFrameRef = useRef(null);
-    const backgroundIntervalRef = useRef(null);
-    const isTransitioning = useRef(false);
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const productiveStartTimeRef = useRef(null);
+    
+    // Settings and data
     const [userPreferences, setUserPreferences] = useState({
         focusTime: 25 * 60,
         shortBreakTime: 5 * 60,
@@ -38,16 +38,158 @@ const Timer = () => {
     const [showPreferencesModal, setShowPreferencesModal] = useState(false);
     const [selectedTask, setSelectedTask] = useState(null);
     const [userTasks, setUserTasks] = useState([]);
-    const productiveStartTimeRef = useRef(null);
     const [showTaskModal, setShowTaskModal] = useState(false);
-    const PRODUCTIVE_TIME_THRESHOLD = 5;
+    
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+    // Get duration for current state
+    const getStateDuration = (state = currentState) => {
+        switch (state) {
+            case TIMER_STATES.FOCUS: return userPreferences.focusTime;
+            case TIMER_STATES.SHORT_BREAK: return userPreferences.shortBreakTime;
+            case TIMER_STATES.LONG_BREAK: return userPreferences.longBreakTime;
+            default: return userPreferences.focusTime;
+        }
+    };
 
+    // Clear all timers
+    const clearTimer = () => {
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+    };
+
+    // Single timer function
+    const startTimer = () => {
+        clearTimer();
+        
+        timerRef.current = setInterval(() => {
+            const now = Date.now();
+            const elapsed = Math.floor((now - startTimeRef.current) / 1000);
+            const duration = getStateDuration();
+            const remaining = Math.max(0, duration - elapsed);
+            
+            setTimeLeft(remaining);
+            
+            if (remaining === 0) {
+                completeSession();
+            }
+        }, 100);
+    };
+
+    // Complete current session and move to next
+    const completeSession = async () => {
+        clearTimer();
+        ring();
+        
+        await logProductiveTime('session_complete');
+        
+        let newFocusSessions = focusSessions;
+        let nextState;
+        
+        if (currentState === TIMER_STATES.FOCUS) {
+            newFocusSessions = focusSessions + 1;
+            setFocusSessions(newFocusSessions);
+            
+            // Determine next break type
+            const shouldBeLongBreak = newFocusSessions % userPreferences.sessionsUntilLongBreak === 0;
+            nextState = shouldBeLongBreak ? TIMER_STATES.LONG_BREAK : TIMER_STATES.SHORT_BREAK;
+        } else {
+            nextState = TIMER_STATES.FOCUS;
+        }
+        
+        // Transition to next state
+        setCurrentState(nextState);
+        setTimeLeft(getStateDuration(nextState));
+        startTimeRef.current = Date.now();
+        
+        // Auto-start next session
+        startTimer();
+        
+        // Start productive time tracking for focus sessions
+        if (nextState === TIMER_STATES.FOCUS && selectedTask?.project) {
+            productiveStartTimeRef.current = Date.now();
+        }
+        
+        // Clear localStorage (will be set again by effect)
+        localStorage.removeItem('pomodoroState');
+    };
+
+    // Manual state switch
+    const switchToState = async (newState) => {
+        clearTimer();
+        pop();
+        
+        await logProductiveTime('manual_switch');
+        
+        setIsActive(false);
+        setCurrentState(newState);
+        setTimeLeft(getStateDuration(newState));
+        startTimeRef.current = null;
+        productiveStartTimeRef.current = null;
+        
+        localStorage.removeItem('pomodoroState');
+    };
+
+    // Skip to next session
+    const skipToNext = async () => {
+        if (!isActive) return;
+        await completeSession();
+    };
+
+    // Toggle timer
+    const toggleTimer = async () => {
+        if (!isActive) {
+            // Starting timer
+            if (!startTimeRef.current) {
+                const elapsed = getStateDuration() - timeLeft;
+                startTimeRef.current = Date.now() - (elapsed * 1000);
+            }
+            
+            if (currentState === TIMER_STATES.FOCUS && selectedTask?.project) {
+                productiveStartTimeRef.current = Date.now();
+            }
+            
+            startTimer();
+            start();
+        } else {
+            // Pausing timer
+            clearTimer();
+            await logProductiveTime('pause');
+            pause();
+        }
+        
+        setIsActive(!isActive);
+    };
+
+    // Log productive time
+    const logProductiveTime = async (context) => {
+        if (currentState === TIMER_STATES.FOCUS && 
+            selectedTask?.project && 
+            productiveStartTimeRef.current) {
+            
+            const now = Date.now();
+            const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
+            
+            if (productiveTime >= 5) {
+                try {
+                    await logTimeToProject(productiveTime);
+                    console.log(`Logged ${productiveTime}s [${context}]`);
+                } catch (error) {
+                    console.error(`Error logging time [${context}]:`, error);
+                }
+            }
+            
+            productiveStartTimeRef.current = null;
+        }
+    };
+
+    // API functions (unchanged)
     const fetchUserPreferences = async () => {
         try {
             const token = localStorage.getItem('token');
             if (!token || !user) {
-                console.log('No token or user, using defaults');
                 setPreferencesLoaded(true);
                 return;
             }
@@ -57,17 +199,15 @@ const Timer = () => {
             );
 
             setUserPreferences(response.data);
-
             if (!isActive) {
                 setTimeLeft(response.data.focusTime || 25 * 60);
             }
-
         } catch (error) {
-            console.log('Error fetching preferences, using defaults:', error);
+            console.log('Error fetching preferences:', error);
         } finally {
             setPreferencesLoaded(true);
         }
-    }
+    };
 
     const fetchUserTasks = async () => {
         try {
@@ -81,7 +221,6 @@ const Timer = () => {
 
             if (selectedTask) {
                 const currentTask = response.data.find(task => task._id === selectedTask._id);
-
                 if (!currentTask || currentTask.completed) {
                     await stopCurrentTask();
                 } else {
@@ -91,428 +230,115 @@ const Timer = () => {
         } catch (error) {
             console.log('Error fetching tasks:', error);
         }
-    }
+    };
+
+    const logTimeToProject = async (seconds) => {
+        if (!selectedTask?.project?._id || !user || seconds <= 0) return;
+
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        try {
+            await axios.patch(`${apiBase}/api/projects/${selectedTask.project._id}/log-time`, {
+                timeSpent: seconds
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+        } catch (error) {
+            console.error('Failed to log time to project:', error);
+            throw error;
+        }
+    };
+
+    const stopCurrentTask = async () => {
+        await logProductiveTime('stop_task');
+        setSelectedTask(null);
+    };
 
     const handlePreferencesSubmit = async (newPreferences) => {
         setUserPreferences(newPreferences);
-        setSessionsUntilBreak(newPreferences.sessionsUntilLongBreak || 4);
-
-        const wasActive = isActive;
-
-        if (wasActive) {
-            setIsActive(false);
-        }
-
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-        }
-        if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-        }
-        if (backgroundIntervalRef.current) {
-            clearInterval(backgroundIntervalRef.current);
-        }
-
-        localStorage.removeItem('pomodoroStart');
-        localStorage.removeItem('pomodoroTimeLeft');
-        localStorage.removeItem('pomodoroState');
-        localStorage.removeItem('pomodoroActive');
-
+        
+        clearTimer();
+        setIsActive(false);
         startTimeRef.current = null;
-
+        
         const newDuration = getStateDurationFromPreferences(currentState, newPreferences);
         setTimeLeft(newDuration);
-
-        if (wasActive) {
-            setTimeout(() => {
-                setIsActive(true);
-            }, 100);
-        }
-    }
+        
+        localStorage.removeItem('pomodoroState');
+    };
 
     const getStateDurationFromPreferences = (state, preferences) => {
         switch (state) {
-            case TIMER_STATES.FOCUS:
-                return preferences.focusTime || 25 * 60;
-            case TIMER_STATES.SHORT_BREAK:
-                return preferences.shortBreakTime || 5 * 60;
-            case TIMER_STATES.LONG_BREAK:
-                return preferences.longBreakTime || 15 * 60;
-            default:
-                return 25 * 60;
+            case TIMER_STATES.FOCUS: return preferences.focusTime;
+            case TIMER_STATES.SHORT_BREAK: return preferences.shortBreakTime;
+            case TIMER_STATES.LONG_BREAK: return preferences.longBreakTime;
+            default: return preferences.focusTime;
         }
     };
 
-    const openPreferencesModal = () => {
-        setShowPreferencesModal(true);
-    }
-
-    const stopCurrentTask = async () => {
-        if (currentState === TIMER_STATES.FOCUS && selectedTask?.project && productiveStartTimeRef.current) {
-            const now = Date.now();
-            const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
-            // Only log if at least 5 seconds of productive time
-            if (productiveTime >= 5) {
-                try {
-                    await logTimeToProject(productiveTime);
-                    console.log(`Successfully logged ${productiveTime} seconds to project (stop task)`);
-                } catch (error) {
-                    console.error('Failed to log time to project on stop task:', error);
-                }
-            }
-        }
-
-        setSelectedTask(null);
-        productiveStartTimeRef.current = null;
-    }
-
+    // Effects
     useEffect(() => {
         fetchUserPreferences();
         fetchUserTasks();
-        // Test the state transition logic on load
-        if (import.meta.env.DEV) {
-            setTimeout(() => testStateTransitions(), 1000);
-        }
-    }, [user])
+    }, [user]);
 
-    useEffect(() => {
-        setSessionsUntilBreak(userPreferences.sessionsUntilLongBreak || 4);
-    }, [userPreferences.sessionsUntilLongBreak])
-
-    useEffect(() => {
-        const handleFocus = () => {
-            if (user) {
-                fetchUserTasks();
-            }
-        };
-
-        const handleVisibilityChange = () => {
-            if (!document.hidden && user) {
-                fetchUserTasks();
-            }
-        };
-
-        window.addEventListener('focus', handleFocus);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            window.removeEventListener('focus', handleFocus);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [user])
-
-    useEffect(() => {
-        if (!selectedTask || !user) return;
-
-        const checkTaskStatus = setInterval(() => {
-            fetchUserTasks();
-        }, 30000);
-
-        return () => clearInterval(checkTaskStatus);
-    }, [selectedTask, user])
-
-    const getStateDuration = (state) => {
-        switch (state) {
-            case TIMER_STATES.FOCUS:
-                return userPreferences.focusTime || 25 * 60;
-            case TIMER_STATES.SHORT_BREAK:
-                return userPreferences.shortBreakTime || 5 * 60;
-            case TIMER_STATES.LONG_BREAK:
-                return userPreferences.longBreakTime || 15 * 60;
-            default:
-                return 25 * 60;
-        }
-    };
-
-    const testStateTransitions = () => {
-        console.log("=== TESTING STATE TRANSITIONS ===");
-        const sessionsUntilLong = userPreferences.sessionsUntilLongBreak || 4;
-
-        for (let sessions = 0; sessions < 8; sessions++) {
-            const nextSession = sessions + 1;
-            const shouldBeLongBreak = nextSession % sessionsUntilLong === 0;
-            console.log(`After ${sessions} completed sessions -> Session ${nextSession} -> ${shouldBeLongBreak ? 'LONG BREAK' : 'SHORT BREAK'}`);
-        }
-        console.log("=== END TEST ===");
-    };
-
-    const getNextState = (updatedFocusCount = focusSessions) => {
-    ring();
-    if (currentState === TIMER_STATES.FOCUS) {
-        const completedSessions = updatedFocusCount;
-        const sessionsUntilLong = userPreferences.sessionsUntilLongBreak || 4;
-
-        if (completedSessions % sessionsUntilLong === 0) {
-            return TIMER_STATES.LONG_BREAK;
-        } else {
-            return TIMER_STATES.SHORT_BREAK;
-        }
-    } else {
-        return TIMER_STATES.FOCUS;
-    }
-};
-
-    const switchToState = async (newState) => {
-        await logAndResetProductiveTime('manual switch');
-        pop();
-        setIsActive(false);
-        setCurrentState(newState);
-        setTimeLeft(getStateDuration(newState));
-        localStorage.removeItem('pomodoroStart');
-        localStorage.removeItem('pomodoroTimeLeft');
-        localStorage.removeItem('pomodoroState');
-        startTimeRef.current = null;
-        productiveStartTimeRef.current = null; // Reset productive time tracking
-
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-        }
-        if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-        }
-        if (backgroundIntervalRef.current) {
-            clearInterval(backgroundIntervalRef.current);
-        }
-    };
-
-    const skipToNext = async (isAutomatic = false) => {
-        if (isTransitioning.current) return;
-        isTransitioning.current = true;
-
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-        }
-        if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-        }
-        if (backgroundIntervalRef.current) {
-            clearInterval(backgroundIntervalRef.current);
-        }
-
-        await logAndResetProductiveTime('skip');
-
-        let updatedFocusSessions = focusSessions;
-
-        if (currentState === TIMER_STATES.FOCUS) {
-            updatedFocusSessions += 1;
-            setFocusSessions(updatedFocusSessions);
-        }
-
-        const nextState = getNextState(updatedFocusSessions);
-
-        setCurrentState(nextState);
-        setTimeLeft(getStateDuration(nextState));
-        setIsActive(isAutomatic);
-
-        localStorage.removeItem('pomodoroStart');
-        localStorage.removeItem('pomodoroTimeLeft');
-        localStorage.removeItem('pomodoroState');
-
-        startTimeRef.current = null;
-
-        if (isAutomatic) {
-            startTimeRef.current = Date.now();
-            // Start productive time tracking for new focus sessions
-            if (nextState === TIMER_STATES.FOCUS && selectedTask?.project) {
-                productiveStartTimeRef.current = Date.now();
-            }
-            setupTimersForState(nextState);
-        }
-
-        setTimeout(() => {
-            isTransitioning.current = false;
-        }, 100); // Reduced timeout for faster state changes
-    };
-
-    const calculateTimeLeft = (forState = null) => {
-        const stateToUse = forState || currentState;
-        if (!startTimeRef.current) return getStateDuration(stateToUse);
-
-        const now = Date.now();
-        const elapsed = Math.floor((now - startTimeRef.current) / 1000);
-        const duration = getStateDuration(stateToUse);
-        return Math.max(0, duration - elapsed);
-    };
-
-    const setupTimersForState = (forState = null) => {
-        const stateToUse = forState || currentState;
-
-        if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-        }
-        if (backgroundIntervalRef.current) {
-            clearInterval(backgroundIntervalRef.current);
-        }
-
-        const updateTimerFrame = () => {
-            if (!isActive || isTransitioning.current) return;
-
-            const newTimeLeft = calculateTimeLeft(stateToUse);
-            setTimeLeft(newTimeLeft);
-
-            if (newTimeLeft === 0 && !isTransitioning.current) {
-                skipToNext(true);
-                return;
-            }
-
-            animationFrameRef.current = requestAnimationFrame(updateTimerFrame);
-        };
-
-        const updateTimerInterval = () => {
-            if (!isActive || isTransitioning.current) return;
-
-            const newTimeLeft = calculateTimeLeft(stateToUse);
-            setTimeLeft(newTimeLeft);
-
-            if (newTimeLeft === 0 && !isTransitioning.current) {
-                skipToNext(true);
-                return;
-            }
-        };
-
-        animationFrameRef.current = requestAnimationFrame(updateTimerFrame);
-        backgroundIntervalRef.current = setInterval(updateTimerInterval, 200);
-    };
-
-    const setupTimers = () => {
-        setupTimersForState(currentState);
-    };
-
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.hidden) {
-                // Tab became inactive - rely on background interval
-                if (animationFrameRef.current) {
-                    cancelAnimationFrame(animationFrameRef.current);
-                }
-            } else {
-                // Tab became active - restart animation frame
-                if (isActive && !isTransitioning.current) {
-                    const updateTimerFrame = () => {
-                        if (!isActive || isTransitioning.current) return;
-
-                        const newTimeLeft = calculateTimeLeft();
-                        setTimeLeft(newTimeLeft);
-
-                        if (newTimeLeft === 0 && !isTransitioning.current) {
-                            skipToNext(true);
-                            return;
-                        }
-
-                        animationFrameRef.current = requestAnimationFrame(updateTimerFrame);
-                    };
-                    animationFrameRef.current = requestAnimationFrame(updateTimerFrame);
-                }
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [isActive, currentState]);
-
-    useEffect(() => {
-        if (isActive) {
-            if (!startTimeRef.current) {
-                const duration = getStateDuration(currentState);
-                startTimeRef.current = Date.now() - (duration - timeLeft) * 1000;
-            }
-            setupTimers();
-        } else {
-            // Clear all timers when not active
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
-            if (backgroundIntervalRef.current) {
-                clearInterval(backgroundIntervalRef.current);
-            }
-        }
-
-        return () => {
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
-            if (backgroundIntervalRef.current) {
-                clearInterval(backgroundIntervalRef.current);
-            }
-        };
-    }, [isActive]);
-
+    // State persistence
     useEffect(() => {
         if (isActive && startTimeRef.current) {
-            localStorage.setItem('pomodoroStart', startTimeRef.current.toString());
-            localStorage.setItem('pomodoroState', currentState);
-            localStorage.setItem('pomodoroActive', 'true');
-        } else {
-            localStorage.removeItem('pomodoroActive');
+            const state = {
+                currentState,
+                startTime: startTimeRef.current,
+                focusSessions
+            };
+            localStorage.setItem('pomodoroState', JSON.stringify(state));
         }
-    }, [isActive, currentState]);
+    }, [isActive, currentState, focusSessions]);
 
+    // State restoration
     useEffect(() => {
         if (!preferencesLoaded) return;
 
-        const restoreTimerState = () => {
-            const savedStart = localStorage.getItem('pomodoroStart');
-            const savedState = localStorage.getItem('pomodoroState');
-            const wasActive = localStorage.getItem('pomodoroActive') === 'true';
-
-            if (savedStart && savedState && wasActive) {
-                const now = Date.now();
-                const savedStartTime = parseInt(savedStart);
-                const elapsed = Math.floor((now - savedStartTime) / 1000);
-                const duration = getStateDuration(savedState);
-                const calculatedTimeLeft = Math.max(0, duration - elapsed);
-
-                if (calculatedTimeLeft > 0) {
-                    setCurrentState(savedState);
-                    setTimeLeft(calculatedTimeLeft);
-                    startTimeRef.current = savedStartTime;
+        const savedState = localStorage.getItem('pomodoroState');
+        if (savedState) {
+            try {
+                const { currentState: savedCurrentState, startTime, focusSessions: savedSessions } = JSON.parse(savedState);
+                
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const duration = getStateDuration(savedCurrentState);
+                const remaining = Math.max(0, duration - elapsed);
+                
+                if (remaining > 0) {
+                    setCurrentState(savedCurrentState);
+                    setFocusSessions(savedSessions);
+                    setTimeLeft(remaining);
+                    startTimeRef.current = startTime;
                     setIsActive(true);
+                    startTimer();
                 } else {
-                    // Timer expired while away
-                    localStorage.removeItem('pomodoroStart');
                     localStorage.removeItem('pomodoroState');
-                    localStorage.removeItem('pomodoroActive');
                     ring();
-                    setCurrentState(TIMER_STATES.FOCUS);
-                    setTimeLeft(getStateDuration(TIMER_STATES.FOCUS));
                 }
+            } catch (error) {
+                localStorage.removeItem('pomodoroState');
             }
-            // Don't set timeLeft if no saved state - let preferences handle it
-        };
-
-        restoreTimerState();
-
-        const handleFocus = () => {
-            restoreTimerState();
-        };
-
-        window.addEventListener('focus', handleFocus);
-        return () => {
-            window.removeEventListener('focus', handleFocus);
-        };
+        }
     }, [preferencesLoaded]);
 
-    const toggleTimer = async () => {
-        if (!isActive) {
-            if (!startTimeRef.current) {
-                const duration = getStateDuration(currentState);
-                startTimeRef.current = Date.now() - (duration - timeLeft) * 1000;
-            }
+    // Cleanup
+    useEffect(() => {
+        return () => clearTimer();
+    }, []);
 
-            if (currentState === TIMER_STATES.FOCUS && selectedTask?.project) {
-                productiveStartTimeRef.current = Date.now();
-            }
+    // Update title
+    useEffect(() => {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        const stateLabel = getStateLabel(currentState);
+        document.title = `${stateLabel} - ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }, [timeLeft, currentState]);
 
-            start();
-        } else {
-            await logAndResetProductiveTime('pause');
-            pause();
-        }
-        setIsActive(!isActive);
-    };
-
+    // Utility functions
     const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -520,120 +346,40 @@ const Timer = () => {
     };
 
     const getProgress = () => {
-        const totalTime = getStateDuration(currentState);
+        const totalTime = getStateDuration();
         return ((totalTime - timeLeft) / totalTime) * 100;
     };
 
     const getStateColor = (state) => {
         switch (state) {
-            case TIMER_STATES.FOCUS:
-                return '#3B82F6';
-            case TIMER_STATES.SHORT_BREAK:
-                return '#10B981';
-            case TIMER_STATES.LONG_BREAK:
-                return '#8B5CF6';
-            default:
-                return '#3B82F6';
+            case TIMER_STATES.FOCUS: return '#3B82F6';
+            case TIMER_STATES.SHORT_BREAK: return '#10B981';
+            case TIMER_STATES.LONG_BREAK: return '#8B5CF6';
+            default: return '#3B82F6';
         }
     };
 
     const getStateLabel = (state) => {
         switch (state) {
-            case TIMER_STATES.FOCUS:
-                return 'Focus';
-            case TIMER_STATES.SHORT_BREAK:
-                return 'Short Break';
-            case TIMER_STATES.LONG_BREAK:
-                return 'Long Break';
-            default:
-                return 'Focus';
+            case TIMER_STATES.FOCUS: return 'Focus';
+            case TIMER_STATES.SHORT_BREAK: return 'Short Break';
+            case TIMER_STATES.LONG_BREAK: return 'Long Break';
+            default: return 'Focus';
         }
     };
 
-    useEffect(() => {
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        let state = "";
-
-        switch (currentState) {
-            case "focus":
-                state = "Focus";
-                break;
-            case "short_break":
-                state = "Short Break";
-                break;
-            case "long_break":
-                state = "Long Break";
-                break;
-        }
-
-        document.title = `${state} - ${minutes}:${seconds.toString().padStart(2, '0')}`
-    }, [timeLeft, currentState]);
-
-    const logTimeToProject = async (seconds) => {
-        if (!selectedTask?.project?._id || !user || seconds <= 0) {
-            console.log('Skipping time log - invalid conditions:', {
-                hasProject: !!selectedTask?.project?._id,
-                hasUser: !!user,
-                seconds
-            });
-            return;
-        }
-
-        const token = localStorage.getItem('token');
-        if (!token) {
-            console.error('No authentication token available');
-            return;
-        }
-
-        try {
-            const response = await axios.patch(`${apiBase}/api/projects/${selectedTask.project._id}/log-time`, {
-                timeSpent: seconds
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            console.log(`Successfully logged ${seconds} seconds to project ${selectedTask.project.name}`, response.data);
-            return response.data;
-        } catch (error) {
-            console.error('Failed to log time to project:', {
-                projectId: selectedTask.project._id,
-                seconds,
-                error: error.response?.data || error.message
-            });
-            throw error;
-        }
-    }
-
-    const logAndResetProductiveTime = async (context = 'unspecified') => {
-    if (
-        currentState === TIMER_STATES.FOCUS &&
-        selectedTask?.project &&
-        productiveStartTimeRef.current
-    ) {
-        const now = Date.now();
-        const productiveTime = Math.floor((now - productiveStartTimeRef.current) / 1000);
-        if (productiveTime >= PRODUCTIVE_TIME_THRESHOLD) {
-            try {
-                await logTimeToProject(productiveTime);
-                console.log(`Logged ${productiveTime}s of focus time [${context}]`);
-            } catch (error) {
-                console.error(`Error logging time [${context}]:`, error);
-            }
-        }
-        productiveStartTimeRef.current = null;
-    }
-};
-
-
+    // Render JSX (unchanged from original, just the core timer logic is simplified)
     return (
         <>
             {isExpanded && (
                 <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-all duration-300"></div>
-            )}            <div className={`backdrop-blur-md border border-white/20 rounded-2xl shadow-lg flex flex-col items-center transition-all duration-300 ${isExpanded
+            )}
+            
+            <div className={`backdrop-blur-md border border-white/20 rounded-2xl shadow-lg flex flex-col items-center transition-all duration-300 ${isExpanded
                 ? 'fixed inset-4 z-50 justify-start bg-white/5 backdrop-blur-lg border-white/25 shadow-xl p-4 sm:p-6 max-h-screen overflow-y-auto'
                 : 'min-h-[400px] justify-center bg-white/10 p-6 w-full'
                 }`}>
+                
                 <div className="flex justify-between items-center w-full mb-6">
                     <h2 className={`font-inter-bold ${isExpanded ? 'text-xl text-white' : 'text-xl'}`}>Timer</h2>
                     <button
@@ -670,24 +416,14 @@ const Timer = () => {
                                 </button>
                             ))}
                         </div>
+
                         <div className={`relative mb-6 flex-shrink-0 ${isExpanded ? 'w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80' : 'w-52 h-52'}`}>
                             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="45" stroke="rgba(255,255,255,0.1)" strokeWidth="3" fill="none" />
                                 <circle
-                                    cx="50"
-                                    cy="50"
-                                    r="45"
-                                    stroke="rgba(255,255,255,0.1)"
-                                    strokeWidth="3"
-                                    fill="none"
-                                />
-                                <circle
-                                    cx="50"
-                                    cy="50"
-                                    r="45"
+                                    cx="50" cy="50" r="45"
                                     stroke={getStateColor(currentState)}
-                                    strokeWidth="3"
-                                    fill="none"
-                                    strokeLinecap="round"
+                                    strokeWidth="3" fill="none" strokeLinecap="round"
                                     strokeDasharray={`${2 * Math.PI * 45}`}
                                     strokeDashoffset={`${2 * Math.PI * 45 * (1 - getProgress() / 100)}`}
                                     className="transition-all duration-1000 ease-linear"
@@ -705,6 +441,7 @@ const Timer = () => {
                                 </div>
                             </div>
                         </div>
+
                         <div className="relative flex justify-center mb-4">
                             <button
                                 onClick={toggleTimer}
@@ -751,7 +488,7 @@ const Timer = () => {
                             <div className="w-full mt-6 pt-4 border-t border-white/10">
                                 <div className="flex items-center justify-between gap-4">
                                     <button
-                                        onClick={openPreferencesModal}
+                                        onClick={() => setShowPreferencesModal(true)}
                                         className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-sm transition-all duration-200 cursor-pointer"
                                     >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -783,11 +520,9 @@ const Timer = () => {
                                             </button>
                                         )}
                                     </div>
-
                                 </div>
                             </div>
                         )}
-
                     </>
                 )}
             </div>
@@ -803,23 +538,16 @@ const Timer = () => {
                 isOpen={showTaskModal}
                 onClose={() => setShowTaskModal(false)}
                 onSelect={async (task) => {
-                
-                    await logAndResetProductiveTime('task switch');
-
-                    // Set new task
+                    await logProductiveTime('task_switch');
                     setSelectedTask(task);
-
-                    // Start tracking time for new task if in active focus session
+                    
                     if (currentState === TIMER_STATES.FOCUS && isActive && task?.project) {
                         productiveStartTimeRef.current = Date.now();
-                    } else {
-                        productiveStartTimeRef.current = null;
                     }
                 }}
             />
-
         </>
     );
-}
+};
 
 export default Timer;
