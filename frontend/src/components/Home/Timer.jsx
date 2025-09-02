@@ -368,7 +368,6 @@ const Timer = () => {
         }
     };
 
-    // Render JSX (unchanged from original, just the core timer logic is simplified)
     return (
         <>
             {isExpanded && (

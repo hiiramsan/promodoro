@@ -7,14 +7,11 @@ const ServerLoadingScreen = ({ retryCount, error }) => {
   const [isTyping, setIsTyping] = useState(true);
 
   const messages = [
-    "Our backend just took a nap — waking it up...",
-    "Brewing some fresh server magic...",
-    "Dusting off the database...",
-    "Warming up the productivity engines...",
+    "Our backend just took a nap, waking it up...",
+    "This doesn't take too long, I hope...",
+    "What is holding you from being happy?",
+    "I should pay for a cloud server...",
     "Almost there! Just a few more seconds...",
-    "The server is doing its morning stretches...",
-    "Loading your personalized workspace...",
-    "Synchronizing with the cloud..."
   ];
 
   useEffect(() => {
